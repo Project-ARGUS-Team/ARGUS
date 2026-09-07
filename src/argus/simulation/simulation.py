@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import random
 
+from argus.llm.gateway import LLMGateway
 from argus.simulation.agent import ActionType, AgentState, Goal, Vector2
 from argus.simulation.context import AgentContext, AgentObservation, EventObservation, StateDelta
 from argus.simulation.events import WorldEvent
@@ -162,6 +163,17 @@ class Simulation:
             )
         else:
             agent.velocity = Vector2(0.0, 0.0)
+
+    def request_cognitive_update(
+        self,
+        agent_id: str,
+        gateway: LLMGateway,
+    ) -> StateDelta:
+        """Request and apply one cognitive update for an agent."""
+        context = self.build_agent_context(agent_id)
+        delta = gateway.request_cognitive_update(context)
+        self.apply_state_delta(agent_id, delta)
+        return delta
 
     def tick(self) -> None:
         """Advance the simulation by exactly one tick."""
