@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 import random
 
-from argus.simulation.agent import AgentState, Goal, Vector2
+from argus.simulation.agent import ActionType, AgentState, Goal, Vector2
+from argus.simulation.context import AgentContext, AgentObservation, EventObservation, StateDelta
 from argus.simulation.events import WorldEvent
 from argus.simulation.world import World
 
@@ -65,25 +66,102 @@ class Simulation:
                 goal=goal,
             )
 
-        return cls(
-            state=SimulationState(agents=agents),
-            world=world,
-        )
+        return cls(state=SimulationState(agents=agents), world=world)
 
     @property
     def current_tick(self) -> int:
-        """Return the current simulation tick."""
         return self.state.tick
 
     @property
     def simulation_time(self) -> float:
-        """Return elapsed simulation time in seconds."""
         return self.state.simulation_time
 
     @property
     def agents(self) -> dict[str, AgentState]:
-        """Return the simulation's agents."""
         return self.state.agents
+
+    def build_agent_context(self, agent_id: str) -> AgentContext:
+        """Build a read-only cognitive context for an agent."""
+        agent = self.state.agents[agent_id]
+
+        nearby_agents = []
+        for other in self.state.agents.values():
+            if other.agent_id == agent_id or not other.active:
+                continue
+
+            dx = other.position.x - agent.position.x
+            dy = other.position.y - agent.position.y
+            distance = (dx * dx + dy * dy) ** 0.5
+            nearby_agents.append(
+                AgentObservation(
+                    agent_id=other.agent_id,
+                    position=other.position,
+                    distance=distance,
+                )
+            )
+
+        active_events = []
+        for event in self.state.events.values():
+            if event.is_active(self.current_tick):
+                dx = event.position.x - agent.position.x
+                dy = event.position.y - agent.position.y
+                distance = (dx * dx + dy * dy) ** 0.5
+                active_events.append(
+                    EventObservation(
+                        event_id=event.event_id,
+                        event_type=event.event_type,
+                        position=event.position,
+                        distance=distance,
+                    )
+                )
+
+        return AgentContext(
+            agent_id=agent.agent_id,
+            simulation_tick=self.current_tick,
+            simulation_time=self.simulation_time,
+            position=agent.position,
+            velocity=agent.velocity,
+            goal=agent.goal,
+            current_action=agent.current_action,
+            plan=tuple(agent.plan),
+            nearby_agents=tuple(nearby_agents),
+            active_events=tuple(active_events),
+            social_connections=tuple(sorted(agent.social_connections)),
+        )
+
+    def apply_state_delta(self, agent_id: str, delta: StateDelta) -> None:
+        """Apply a cognitive result to authoritative agent state."""
+        agent = self.state.agents[agent_id]
+
+        if delta.plan:
+            agent.plan = list(delta.plan)
+
+        if delta.action is None:
+            return
+
+        agent.set_action(delta.action)
+
+        if delta.action.action_type == ActionType.MOVE:
+            target = delta.action.target_position
+            if target is None:
+                agent.velocity = Vector2(0.0, 0.0)
+                return
+
+            dx = target.x - agent.position.x
+            dy = target.y - agent.position.y
+            distance = (dx * dx + dy * dy) ** 0.5
+
+            if distance == 0.0:
+                agent.velocity = Vector2(0.0, 0.0)
+                return
+
+            speed = 1.0
+            agent.velocity = Vector2(
+                x=(dx / distance) * speed,
+                y=(dy / distance) * speed,
+            )
+        else:
+            agent.velocity = Vector2(0.0, 0.0)
 
     def tick(self) -> None:
         """Advance the simulation by exactly one tick."""
