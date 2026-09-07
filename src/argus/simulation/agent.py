@@ -60,10 +60,8 @@ class AgentState:
     active: bool = True
 
     def set_action(self, action: Action) -> None:
-        """Set the action currently being executed."""
         self.current_action = action
 
     def clear_action(self) -> None:
-        """Stop the current action."""
         self.current_action = None
         self.velocity = Vector2(0.0, 0.0)

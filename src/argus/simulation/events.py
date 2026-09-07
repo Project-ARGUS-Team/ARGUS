@@ -17,5 +17,4 @@ class WorldEvent:
     participants: set[str] = field(default_factory=set)
 
     def is_active(self, tick: int) -> bool:
-        """Return whether the event is active at the given tick."""
         return self.start_tick <= tick <= self.end_tick
