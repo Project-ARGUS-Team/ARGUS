@@ -129,7 +129,6 @@ class TelemetryRepository:
 
     def record_relevance_score(self, record: RelevanceScoreRecord) -> None:
         """Persist one relevance score record."""
-        signals = record.score.signals
         self._connection.execute(
             """
             INSERT INTO relevance_score_records (
@@ -143,12 +142,12 @@ class TelemetryRepository:
                 record.agent_id,
                 record.tick,
                 record.simulation_time,
-                record.score.score,
-                signals.spatial_relevance,
-                signals.interaction_probability,
-                signals.goal_importance,
-                signals.event_participation,
-                signals.social_connectivity,
+                record.score,
+                record.spatial_relevance,
+                record.interaction_probability,
+                record.goal_importance,
+                record.event_participation,
+                record.social_connectivity,
             ),
         )
         self._connection.commit()
