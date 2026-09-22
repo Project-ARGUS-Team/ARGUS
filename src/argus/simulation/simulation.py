@@ -76,14 +76,17 @@ class Simulation:
 
     @property
     def current_tick(self) -> int:
+        """Return the current simulation tick."""
         return self.state.tick
 
     @property
     def simulation_time(self) -> float:
+        """Return the current simulation time."""
         return self.state.simulation_time
 
     @property
     def agents(self) -> dict[str, AgentState]:
+        """Return authoritative agents."""
         return self.state.agents
 
     def build_agent_context(self, agent_id: str) -> AgentContext:
@@ -118,6 +121,7 @@ class Simulation:
                         event_type=event.event_type,
                         position=event.position,
                         distance=distance,
+                        is_participant=agent_id in event.participants,
                     )
                 )
 
