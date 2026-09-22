@@ -40,12 +40,36 @@ class RuleBasedRelevanceScorer:
     """Deterministic Stage 2 relevance scorer.
 
     Stage 2 is intentionally descriptive: the score is recorded but does
-    not change scheduling. All signals are normalized to [0, 1] and equally
-    weighted by default.
+    not change scheduling. Signals are normalized to [0, 1]. The default
+    weights are equal, but experiments can supply alternative non-negative
+    weights.
     """
 
     spatial_radius: float = 25.0
     interaction_scale: float = 3.0
+    spatial_weight: float = 0.2
+    interaction_weight: float = 0.2
+    goal_weight: float = 0.2
+    event_weight: float = 0.2
+    social_weight: float = 0.2
+
+    def __post_init__(self) -> None:
+        if self.spatial_radius <= 0:
+            raise ValueError("spatial_radius must be positive")
+        if self.interaction_scale <= 0:
+            raise ValueError("interaction_scale must be positive")
+
+        weights = (
+            self.spatial_weight,
+            self.interaction_weight,
+            self.goal_weight,
+            self.event_weight,
+            self.social_weight,
+        )
+        if any(weight < 0 for weight in weights):
+            raise ValueError("relevance weights must be non-negative")
+        if sum(weights) <= 0:
+            raise ValueError("at least one relevance weight must be positive")
 
     def score(self, context: AgentContext) -> RelevanceScore:
         signals = RelevanceSignals(
@@ -55,13 +79,28 @@ class RuleBasedRelevanceScorer:
             event_participation=self._event_participation(context),
             social_connectivity=self._social_connectivity(context),
         )
-        score = (
-            signals.spatial_relevance
-            + signals.interaction_probability
-            + signals.goal_importance
-            + signals.event_participation
-            + signals.social_connectivity
-        ) / 5.0
+        weights = (
+            self.spatial_weight,
+            self.interaction_weight,
+            self.goal_weight,
+            self.event_weight,
+            self.social_weight,
+        )
+        weight_total = sum(weights)
+        score = sum(
+            signal * weight
+            for signal, weight in zip(
+                (
+                    signals.spatial_relevance,
+                    signals.interaction_probability,
+                    signals.goal_importance,
+                    signals.event_participation,
+                    signals.social_connectivity,
+                ),
+                weights,
+                strict=True,
+            )
+        ) / weight_total
         return RelevanceScore(signals=signals, score=score)
 
     def _spatial_relevance(self, context: AgentContext) -> float:
