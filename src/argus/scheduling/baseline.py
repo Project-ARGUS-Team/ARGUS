@@ -2,38 +2,71 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from argus.llm.gateway import LLMGateway
 from argus.simulation.simulation import Simulation
+from argus.telemetry.models import CognitiveUpdateEvent
+from argus.telemetry.repository import TelemetryRepository
 
 
 class BaselineScheduler:
-    """Run the Stage 1 uniform full-frequency cognitive baseline.
+    """Run the Stage 1 uniform full-frequency cognitive baseline."""
 
-    Every active agent receives exactly one cognitive update before the
-    simulation advances by one tick. No relevance or adaptive scheduling
-    logic is performed here.
-    """
-
-    def __init__(self, simulation: Simulation, gateway: LLMGateway) -> None:
+    def __init__(
+        self,
+        simulation: Simulation,
+        gateway: LLMGateway,
+        telemetry: TelemetryRepository | None = None,
+        run_id: str | None = None,
+    ) -> None:
         self.simulation = simulation
         self.gateway = gateway
+        self.telemetry = telemetry
+        self.run_id = run_id
         self.total_cognitive_updates = 0
+        self._run_started = False
 
     @property
     def current_tick(self) -> int:
         """Return the simulation tick managed by this scheduler."""
         return self.simulation.current_tick
 
+    def _ensure_run(self) -> None:
+        if self.telemetry is None or self._run_started:
+            return
+
+        self.run_id = self.run_id or f"run-{uuid4().hex}"
+        self.telemetry.create_run(self.run_id)
+
+        for agent in self.simulation.agents.values():
+            self.telemetry.record_agent(self.run_id, agent.agent_id)
+
+        self._run_started = True
+
     def step(self) -> int:
         """Perform one baseline scheduling step and return update count."""
+        self._ensure_run()
         updates = 0
 
         for agent in self.simulation.agents.values():
             if not agent.active:
                 continue
 
+            tick = self.simulation.current_tick
+            simulation_time = self.simulation.simulation_time
             self.simulation.request_cognitive_update(agent.agent_id, self.gateway)
             updates += 1
+
+            if self.telemetry is not None:
+                self.telemetry.record_cognitive_update(
+                    CognitiveUpdateEvent(
+                        run_id=self.run_id,
+                        agent_id=agent.agent_id,
+                        tick=tick,
+                        simulation_time=simulation_time,
+                    )
+                )
 
         self.simulation.tick()
         self.total_cognitive_updates += updates
@@ -44,8 +77,14 @@ class BaselineScheduler:
         if ticks < 0:
             raise ValueError("ticks must be non-negative")
 
+        self._ensure_run()
         updates = 0
-        for _ in range(ticks):
-            updates += self.step()
+
+        try:
+            for _ in range(ticks):
+                updates += self.step()
+        finally:
+            if self.telemetry is not None and self.run_id is not None:
+                self.telemetry.complete_run(self.run_id)
 
         return updates
