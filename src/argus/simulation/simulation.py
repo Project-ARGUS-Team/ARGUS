@@ -1,13 +1,18 @@
 """Simulation state and deterministic simulation loop."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 import random
+from typing import TYPE_CHECKING
 
-from argus.llm.gateway import LLMGateway
 from argus.simulation.agent import ActionType, AgentState, Goal, Vector2
 from argus.simulation.context import AgentContext, AgentObservation, EventObservation, StateDelta
 from argus.simulation.events import WorldEvent
 from argus.simulation.world import World
+
+if TYPE_CHECKING:
+    from argus.llm.gateway import LLMGateway
 
 
 @dataclass(slots=True)
@@ -39,7 +44,7 @@ class Simulation:
         agent_count: int = 0,
         seed: int = 42,
         world: World | None = None,
-    ) -> "Simulation":
+    ) -> Simulation:
         """Create a deterministic simulation populated with agents."""
         if agent_count < 0:
             raise ValueError("agent_count must be non-negative")
