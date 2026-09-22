@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from argus.scheduling.relevance import RelevanceScore
+
 
 @dataclass(frozen=True, slots=True)
 class SimulationRun:
@@ -24,3 +26,14 @@ class CognitiveUpdateEvent:
     tick: int
     simulation_time: float
     update_kind: str = "full"
+
+
+@dataclass(frozen=True, slots=True)
+class RelevanceScoreRecord:
+    """Persisted relevance score for one agent at one simulation tick."""
+
+    run_id: str
+    agent_id: str
+    tick: int
+    simulation_time: float
+    score: RelevanceScore
