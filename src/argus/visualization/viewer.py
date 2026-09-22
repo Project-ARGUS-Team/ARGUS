@@ -1,25 +1,26 @@
-"""Minimal Tkinter-based 2D simulation viewer."""
+"""Tkinter-based 2D viewer for the ARGUS baseline simulation."""
 
 from __future__ import annotations
 
 import tkinter as tk
 
+from argus.llm.demo import ScenarioLLMProvider
+from argus.scheduling.baseline import BaselineScheduler
 from argus.simulation.scenario import BaselineScenario
 
 
 class SimulationViewer:
-    """Interactive 2D viewer for a baseline scenario."""
+    """Interactive 2D viewer for a cognitively driven baseline scenario."""
 
     def __init__(
         self,
         scenario: BaselineScenario,
         pixels_per_unit: float = 7.0,
     ) -> None:
-        self.scenario = scenario
-        self.simulation = scenario.simulation
         self.scale = pixels_per_unit
         self.paused = False
         self.running = False
+        self._install_scenario(scenario)
 
         width = int(self.simulation.world.width * self.scale)
         height = int(self.simulation.world.height * self.scale)
@@ -54,11 +55,22 @@ class SimulationViewer:
 
         self._draw()
 
+    def _install_scenario(self, scenario: BaselineScenario) -> None:
+        self.scenario = scenario
+        self.simulation = scenario.simulation
+        route_points = tuple(landmark.position for landmark in scenario.landmarks)
+        self.gateway = ScenarioLLMProvider(route_points)
+        self.scheduler = BaselineScheduler(
+            self.simulation,
+            self.gateway,
+        )
+
     def _screen(self, x: float, y: float) -> tuple[float, float]:
         return x * self.scale, y * self.scale
 
     def _draw(self) -> None:
         self.canvas.delete("all")
+        current_tick = self.simulation.current_tick
 
         for landmark in self.scenario.landmarks:
             x, y = self._screen(
@@ -82,9 +94,19 @@ class SimulationViewer:
             )
 
         for event in self.simulation.state.events.values():
-            if not event.is_active(self.simulation.current_tick):
+            active = event.is_active(current_tick)
+            upcoming = current_tick < event.start_tick
+            if not active and not upcoming:
                 continue
+
             x, y = self._screen(event.position.x, event.position.y)
+            if active:
+                outline = "#f59e0b"
+                label = f"{event.event_type} (ACTIVE)"
+            else:
+                outline = "#6b7280"
+                label = f"{event.event_type} (tick {event.start_tick})"
+
             self.canvas.create_polygon(
                 x,
                 y - 10,
@@ -94,20 +116,21 @@ class SimulationViewer:
                 y + 10,
                 x - 10,
                 y,
-                outline="#f59e0b",
+                outline=outline,
                 fill="",
                 width=2,
             )
             self.canvas.create_text(
                 x,
                 y - 18,
-                text=event.event_type,
-                fill="#fbbf24",
+                text=label,
+                fill=outline,
             )
 
         for agent in self.simulation.agents.values():
             if not agent.active:
                 continue
+
             x, y = self._screen(agent.position.x, agent.position.y)
             radius = 4.0
             self.canvas.create_oval(
@@ -119,17 +142,50 @@ class SimulationViewer:
                 outline="",
             )
 
+            action = agent.current_action
+            if action is None or action.action_type.name != "INTERACT":
+                continue
+
+            target_id = action.target_agent_id
+            if target_id is not None and target_id in self.simulation.agents:
+                target = self.simulation.agents[target_id]
+                tx, ty = self._screen(target.position.x, target.position.y)
+                self.canvas.create_line(x, y, tx, ty, fill="#c084fc", width=2)
+
+        active_events = [
+            event.event_type
+            for event in self.simulation.state.events.values()
+            if event.is_active(current_tick)
+        ]
+        next_events = [
+            event
+            for event in self.simulation.state.events.values()
+            if event.start_tick > current_tick
+        ]
+        next_event = min(next_events, key=lambda event: event.start_tick, default=None)
+
+        event_text = (
+            f"Active: {', '.join(active_events)}"
+            if active_events
+            else (
+                f"Next: {next_event.event_type} @ {next_event.start_tick}"
+                if next_event
+                else "Events complete"
+            )
+        )
+
         self.status.config(
             text=(
-                f"Tick {self.simulation.current_tick}  |  "
-                f"Time {self.simulation.simulation_time:.0f}s  |  "
-                f"Agents {len(self.simulation.agents)}"
+                f"Tick {current_tick}  |  "
+                f"Agents {len(self.simulation.agents)}  |  "
+                f"Cognitive updates {self.scheduler.total_cognitive_updates}  |  "
+                f"{event_text}"
             )
         )
 
     def step(self) -> None:
-        """Advance one simulation tick and redraw."""
-        self.simulation.tick()
+        """Run one full-frequency cognitive baseline tick and redraw."""
+        self.scheduler.step()
         self._draw()
 
     def play(self) -> None:
@@ -147,16 +203,17 @@ class SimulationViewer:
         """Reset by rebuilding the deterministic scenario."""
         from argus.simulation.scenario import create_baseline_scenario
 
-        self.scenario = create_baseline_scenario(
-            agent_count=len(self.simulation.agents)
+        self._install_scenario(
+            create_baseline_scenario(
+                agent_count=len(self.simulation.agents)
+            )
         )
-        self.simulation = self.scenario.simulation
         self._draw()
 
     def _run_frame(self) -> None:
         if not self.running or self.paused:
             return
-        self.simulation.tick()
+        self.scheduler.step()
         self._draw()
         self.root.after(50, self._run_frame)
 
