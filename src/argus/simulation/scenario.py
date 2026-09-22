@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from argus.simulation.agent import ActionType, Goal, Vector2
+from argus.simulation.agent import Action, ActionType, Goal, Vector2
 from argus.simulation.events import WorldEvent
 from argus.simulation.simulation import Simulation
 
@@ -52,8 +52,6 @@ def create_baseline_scenario(
             importance=0.35 + (index % 4) * 0.2,
         )
 
-        # Deterministic local social network: each agent knows its next
-        # two peers in the population ring.
         if len(agents) > 1:
             agent.social_connections.add(
                 agents[(index + 1) % len(agents)].agent_id
@@ -63,10 +61,9 @@ def create_baseline_scenario(
                 agents[(index + 2) % len(agents)].agent_id
             )
 
-        # Stagger starting actions so the initial world is not static.
         if index % 3 == 0:
             agent.set_action(
-                __import__("argus.simulation.agent", fromlist=["Action"]).Action(
+                Action(
                     action_type=ActionType.MOVE,
                     target_position=landmark.position,
                 )
@@ -84,9 +81,7 @@ def create_baseline_scenario(
             position=landmarks[0].position,
             start_tick=20,
             end_tick=80,
-            participants={
-                agent.agent_id for agent in agents[::3]
-            },
+            participants={agent.agent_id for agent in agents[::3]},
         ),
         WorldEvent(
             event_id="plaza-gathering",
@@ -94,9 +89,7 @@ def create_baseline_scenario(
             position=landmarks[1].position,
             start_tick=50,
             end_tick=140,
-            participants={
-                agent.agent_id for agent in agents[1::3]
-            },
+            participants={agent.agent_id for agent in agents[1::3]},
         ),
         WorldEvent(
             event_id="station-disruption",
