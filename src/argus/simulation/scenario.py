@@ -97,7 +97,11 @@ def create_baseline_scenario(
         landmark = landmarks[rng.randrange(len(landmarks))]
         start_tick = rng.randint(20, 520)
         duration = rng.randint(12, 45)
-        participant_count = max(1, agent_count // rng.randint(5, 9))
+        participant_count = (
+            max(1, agent_count // rng.randint(5, 9))
+            if agents
+            else 0
+        )
         participants = {
             agents[rng.randrange(len(agents))].agent_id
             for _ in range(participant_count)
@@ -110,6 +114,7 @@ def create_baseline_scenario(
                 start_tick=start_tick,
                 end_tick=start_tick + duration,
                 participants=participants,
+                importance=rng.uniform(0.35, 1.0),
             )
         )
 
