@@ -22,6 +22,7 @@ class EventObservation:
     event_type: str
     position: Vector2
     distance: float
+    is_participant: bool = False
 
 
 @dataclass(frozen=True, slots=True)
