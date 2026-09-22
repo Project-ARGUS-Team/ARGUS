@@ -5,13 +5,14 @@ from __future__ import annotations
 from uuid import uuid4
 
 from argus.llm.gateway import LLMGateway
+from argus.scheduling.relevance import IRelevanceScorer
 from argus.simulation.simulation import Simulation
-from argus.telemetry.models import CognitiveUpdateEvent
+from argus.telemetry.models import CognitiveUpdateEvent, RelevanceScoreRecord
 from argus.telemetry.repository import TelemetryRepository
 
 
 class BaselineScheduler:
-    """Run the Stage 1 uniform full-frequency cognitive baseline."""
+    """Run the Stage 1 baseline with optional Stage 2 scoring."""
 
     def __init__(
         self,
@@ -19,11 +20,13 @@ class BaselineScheduler:
         gateway: LLMGateway,
         telemetry: TelemetryRepository | None = None,
         run_id: str | None = None,
+        relevance_scorer: IRelevanceScorer | None = None,
     ) -> None:
         self.simulation = simulation
         self.gateway = gateway
         self.telemetry = telemetry
         self.run_id = run_id
+        self.relevance_scorer = relevance_scorer
         self.total_cognitive_updates = 0
         self._run_started = False
 
@@ -45,7 +48,7 @@ class BaselineScheduler:
         self._run_started = True
 
     def step(self) -> int:
-        """Perform one baseline scheduling step and return update count."""
+        """Score agents if configured, then update every active agent."""
         self._ensure_run()
         updates = 0
 
@@ -55,6 +58,27 @@ class BaselineScheduler:
 
             tick = self.simulation.current_tick
             simulation_time = self.simulation.simulation_time
+            context = self.simulation.build_agent_context(agent.agent_id)
+
+            if self.relevance_scorer is not None:
+                score = self.relevance_scorer.score(context)
+                if self.telemetry is not None:
+                    signals = score.signals
+                    self.telemetry.record_relevance_score(
+                        RelevanceScoreRecord(
+                            run_id=self.run_id,
+                            agent_id=agent.agent_id,
+                            tick=tick,
+                            simulation_time=simulation_time,
+                            score=score.score,
+                            spatial_relevance=signals.spatial_relevance,
+                            interaction_probability=signals.interaction_probability,
+                            goal_importance=signals.goal_importance,
+                            event_participation=signals.event_participation,
+                            social_connectivity=signals.social_connectivity,
+                        )
+                    )
+
             self.simulation.request_cognitive_update(agent.agent_id, self.gateway)
             updates += 1
 
