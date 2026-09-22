@@ -1,11 +1,14 @@
-"""Tests for the deterministic baseline demonstration scenario."""
+"""Tests for the deterministic city-scale baseline scenario."""
 
 from argus.simulation.scenario import create_baseline_scenario
 
 
 def test_baseline_scenario_is_deterministic() -> None:
-    first = create_baseline_scenario(agent_count=10, seed=42)
-    second = create_baseline_scenario(agent_count=10, seed=42)
+    first = create_baseline_scenario(agent_count=20, seed=42)
+    second = create_baseline_scenario(agent_count=20, seed=42)
+
+    assert first.landmarks == second.landmarks
+    assert first.simulation.world == second.simulation.world
 
     for agent_id in first.simulation.agents:
         a = first.simulation.agents[agent_id]
@@ -17,16 +20,30 @@ def test_baseline_scenario_is_deterministic() -> None:
     assert first.simulation.state.events == second.simulation.state.events
 
 
-def test_baseline_scenario_has_meaningful_world_state() -> None:
+def test_baseline_scenario_has_city_scale_world() -> None:
     scenario = create_baseline_scenario(agent_count=12)
 
-    assert len(scenario.landmarks) == 4
-    assert len(scenario.simulation.state.events) == 3
+    assert scenario.simulation.world.width == 180.0
+    assert scenario.simulation.world.height == 120.0
+    assert len(scenario.landmarks) == 12
+    assert len(scenario.simulation.state.events) == 10
     assert all(
         agent.goal.target_position is not None
         for agent in scenario.simulation.agents.values()
     )
+
+
+def test_baseline_scenario_events_are_reproducible_and_spread_out() -> None:
+    scenario = create_baseline_scenario(agent_count=40, seed=42)
+    starts = [
+        event.start_tick
+        for event in scenario.simulation.state.events.values()
+    ]
+
+    assert len(set(starts)) >= 6
+    assert min(starts) >= 20
+    assert max(starts) <= 520
     assert all(
-        agent.social_connections
-        for agent in scenario.simulation.agents.values()
+        event.end_tick > event.start_tick
+        for event in scenario.simulation.state.events.values()
     )
