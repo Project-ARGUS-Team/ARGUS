@@ -15,6 +15,12 @@ class WorldEvent:
     start_tick: int
     end_tick: int
     participants: set[str] = field(default_factory=set)
+    importance: float = 0.5
 
     def is_active(self, tick: int) -> bool:
         return self.start_tick <= tick <= self.end_tick
+
+    @property
+    def duration(self) -> int:
+        """Return the event duration in ticks."""
+        return self.end_tick - self.start_tick + 1
