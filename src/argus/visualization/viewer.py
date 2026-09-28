@@ -135,7 +135,7 @@ class SimulationViewer:
         self.scenario = scenario
         self.simulation = scenario.simulation
         route_points = tuple(landmark.position for landmark in scenario.landmarks)
-        self.gateway = ScenarioLLMProvider(route_points)
+        self.gateway = ScenarioLLMProvider(route_points, roads=scenario.roads)
         self.scheduler = BaselineScheduler(
             self.simulation,
             self.gateway,
@@ -250,9 +250,28 @@ class SimulationViewer:
         )
         self.agent_info.config(text=text)
 
+    def _time_of_day(self) -> str:
+        """Convert the 240-tick simulation day into a readable clock."""
+        minutes = (6 * 60 + (self.simulation.current_tick % 240) * 6) % (24 * 60)
+        return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
     def _draw(self) -> None:
         self.canvas.delete("all")
         current_tick = self.simulation.current_tick
+
+        for road in self.scenario.roads:
+            x1, y1 = self._screen(road.start.x, road.start.y)
+            x2, y2 = self._screen(road.end.x, road.end.y)
+            self.canvas.create_line(
+                x1, y1, x2, y2,
+                fill="#374151",
+                width=9,
+            )
+            self.canvas.create_line(
+                x1, y1, x2, y2,
+                fill="#6b7280",
+                width=3,
+            )
 
         for landmark in self.scenario.landmarks:
             x, y = self._screen(
@@ -366,7 +385,8 @@ class SimulationViewer:
         self.status.config(
             text=(
                 f"Tick {current_tick}\n"
-                f"Time {self.simulation.simulation_time:.0f}s\n"
+                f"Time of day {self._time_of_day()}\n"
+                f"Simulation {self.simulation.simulation_time:.0f}s\n"
                 f"Agents {len(self.simulation.agents)}\n"
                 f"Cognitive updates {self.scheduler.total_cognitive_updates}"
             )
