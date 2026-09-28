@@ -5,6 +5,7 @@ from argus.simulation import (
     Action,
     ActionType,
     Simulation,
+    StateDelta,
     TransportMode,
     Vector2,
 )
@@ -103,7 +104,7 @@ def test_car_speed_is_reduced_by_local_congestion() -> None:
 
     simulation.apply_state_delta(
         first.agent_id,
-        __import__("argus.simulation.context", fromlist=["StateDelta"]).StateDelta(
+        StateDelta(
             action=Action(
                 action_type=ActionType.MOVE,
                 target_position=target,
