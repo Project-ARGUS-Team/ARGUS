@@ -14,7 +14,7 @@ from argus.simulation.context import (
     StateDelta,
 )
 from argus.simulation.events import WorldEvent
-from argus.simulation.world import World
+from argus.simulation.world import RoadSegment, World
 
 if TYPE_CHECKING:
     from argus.llm.gateway import LLMGateway
@@ -39,9 +39,15 @@ class SimulationState:
 class Simulation:
     """Owns simulation progression and authoritative world state."""
 
-    def __init__(self, state: SimulationState, world: World) -> None:
+    def __init__(
+        self,
+        state: SimulationState,
+        world: World,
+        roads: tuple[RoadSegment, ...] = (),
+    ) -> None:
         self.state = state
         self.world = world
+        self.roads = roads
 
     @classmethod
     def create(
@@ -49,6 +55,7 @@ class Simulation:
         agent_count: int = 0,
         seed: int = 42,
         world: World | None = None,
+        roads: tuple[RoadSegment, ...] = (),
     ) -> Simulation:
         """Create a deterministic simulation populated with agents."""
         if agent_count < 0:
@@ -77,7 +84,11 @@ class Simulation:
                 goal=goal,
             )
 
-        return cls(state=SimulationState(agents=agents), world=world)
+        return cls(
+            state=SimulationState(agents=agents),
+            world=world,
+            roads=roads,
+        )
 
     @property
     def current_tick(self) -> int:
@@ -125,6 +136,19 @@ class Simulation:
                 None,
             )
 
+        closed_road_ids = tuple(
+            sorted(
+                {
+                    road_id
+                    for event in self.state.events.values()
+                    if event.is_active(self.current_tick)
+                    and event.event_type == "road_closure"
+                    for road_id in event.affected_road_ids
+                }
+            )
+        )
+        traffic_factor = self._traffic_factor(agent_id)
+
         active_events = []
         for event in self.state.events.values():
             if event.is_active(self.current_tick):
@@ -138,6 +162,8 @@ class Simulation:
                         position=event.position,
                         distance=distance,
                         is_participant=agent_id in event.participants,
+                        importance=event.importance,
+                        affected_road_ids=event.affected_road_ids,
                     )
                 )
 
@@ -153,6 +179,9 @@ class Simulation:
             profile=agent.profile,
             current_activity=agent.current_activity,
             current_routine=current_routine,
+            travel_destination=agent.travel_destination,
+            closed_road_ids=closed_road_ids,
+            traffic_factor=traffic_factor,
             nearby_agents=tuple(nearby_agents),
             active_events=tuple(active_events),
             social_connections=tuple(sorted(agent.social_connections)),
@@ -166,6 +195,8 @@ class Simulation:
             agent.goal = delta.goal
         if delta.activity is not None:
             agent.current_activity = delta.activity
+        if delta.travel_destination is not None:
+            agent.travel_destination = delta.travel_destination
 
         if delta.plan:
             agent.plan = list(delta.plan)
@@ -189,13 +220,45 @@ class Simulation:
                 agent.velocity = Vector2(0.0, 0.0)
                 return
 
-            speed = 2.0
+            base_speed = 2.0 if agent.transport_mode.value == "walk" else 6.0
+            speed = base_speed * self._traffic_factor(agent_id)
             agent.velocity = Vector2(
                 x=(dx / distance) * speed,
                 y=(dy / distance) * speed,
             )
         else:
             agent.velocity = Vector2(0.0, 0.0)
+            agent.travel_destination = None
+
+    def _traffic_factor(self, agent_id: str) -> float:
+        """Estimate local traffic pressure for a moving agent."""
+        agent = self.state.agents[agent_id]
+        if agent.transport_mode.value != "car":
+            return 1.0
+
+        congestion = 0
+        for other in self.state.agents.values():
+            if other.agent_id == agent_id or not other.active:
+                continue
+            if other.transport_mode.value != "car":
+                continue
+            dx = other.position.x - agent.position.x
+            dy = other.position.y - agent.position.y
+            if dx * dx + dy * dy <= 12.0 * 12.0:
+                congestion += 1
+
+        factor = max(0.45, 1.0 - congestion * 0.08)
+        for event in self.state.events.values():
+            if not event.is_active(self.current_tick):
+                continue
+            dx = event.position.x - agent.position.x
+            dy = event.position.y - agent.position.y
+            distance = (dx * dx + dy * dy) ** 0.5
+            if event.event_type == "market_rush" and distance <= 25.0:
+                factor = max(0.45, factor - 0.20)
+            elif event.event_type in {"public_gathering", "sports_event"} and distance <= 20.0:
+                factor = max(0.45, factor - 0.10)
+        return factor
 
     def request_cognitive_update(
         self,
