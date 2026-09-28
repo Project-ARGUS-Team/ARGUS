@@ -28,6 +28,13 @@ class Goal:
     importance: float
 
 
+class TransportMode(StrEnum):
+    """Primary transport modes available to a simulated agent."""
+
+    WALK = "walk"
+    CAR = "car"
+
+
 class ActivityType(StrEnum):
     """High-level activities used by an agent's daily routine."""
 
@@ -70,6 +77,7 @@ class AgentProfile:
     work_position: Vector2 | None = None
     leisure_position: Vector2 | None = None
     social_preference: float = 0.5
+    transport_mode: TransportMode = TransportMode.WALK
     routine: tuple[RoutineEntry, ...] = ()
 
 
@@ -101,6 +109,8 @@ class AgentState:
     goal: Goal
     profile: AgentProfile | None = None
     current_activity: ActivityType = ActivityType.HOME
+    transport_mode: TransportMode = TransportMode.WALK
+    travel_destination: Vector2 | None = None
     current_action: Action | None = None
     plan: list[Action] = field(default_factory=list)
     social_connections: set[str] = field(default_factory=set)
