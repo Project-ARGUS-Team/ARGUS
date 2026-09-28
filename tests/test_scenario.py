@@ -78,3 +78,36 @@ def test_agents_start_at_home_with_home_activity() -> None:
         assert agent.profile is not None
         assert agent.position == agent.profile.home_position
         assert agent.current_activity.value == "home"
+
+
+def test_baseline_scenario_has_connected_pedestrian_roads() -> None:
+    scenario = create_baseline_scenario(agent_count=10, seed=42)
+
+    assert len(scenario.roads) >= 10
+    assert all(road.start != road.end for road in scenario.roads)
+    assert any(road.name == "Central Boulevard" for road in scenario.roads)
+
+
+def test_trip_is_not_abandoned_when_schedule_moves_ahead() -> None:
+    from argus.llm.demo import ScenarioLLMProvider
+    from argus.simulation import Action, ActionType
+
+    scenario = create_baseline_scenario(agent_count=1, seed=42)
+    agent = scenario.simulation.agents["agent-0001"]
+    office = agent.profile.work_position
+    assert office is not None
+
+    agent.current_action = Action(
+        action_type=ActionType.MOVE,
+        target_position=office,
+    )
+    scenario.simulation.state.tick = 125
+
+    provider = ScenarioLLMProvider(roads=scenario.roads)
+    delta = provider.request_cognitive_update(
+        scenario.simulation.build_agent_context(agent.agent_id)
+    )
+
+    assert delta.action is not None
+    assert delta.action.action_type == ActionType.MOVE
+    assert delta.action.target_position is not None
