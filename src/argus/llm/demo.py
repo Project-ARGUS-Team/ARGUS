@@ -69,13 +69,13 @@ class ScenarioLLMProvider:
 
 
 
-    def _road_waypoint(self, position: Vector2, target: Vector2) -> Vector2:
+    def _road_waypoint(self, position: Vector2, target: Vector2, agent_id: str = "") -> Vector2:
         """Return a waypoint on the pedestrian network toward a target."""
         if not self.roads:
             return target
 
         # A small deterministic fraction of trips takes a pedestrian shortcut.
-        index = self._agent_index(str(abs(hash((position.x, position.y)))))
+        index = self._agent_index(agent_id)
         if (index + int(target.x * 3) + int(target.y * 5)) % 13 == 0:
             return target
 
@@ -191,6 +191,7 @@ class ScenarioLLMProvider:
                 and self._distance(
                     context.position,
                     context.current_action.target_position,
+                    context.agent_id,
                 ) > self.arrival_radius
             ):
                 target = self._road_waypoint(
