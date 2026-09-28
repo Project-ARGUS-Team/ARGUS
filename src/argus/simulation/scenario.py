@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 import random
 
-from argus.simulation.agent import Goal, Vector2
+from argus.simulation.agent import (
+    ActivityType,
+    AgentProfile,
+    Goal,
+    RoutineEntry,
+    Vector2,
+)
 from argus.simulation.events import WorldEvent
 from argus.simulation.simulation import Simulation
 from argus.simulation.world import World
@@ -27,6 +33,129 @@ class BaselineScenario:
 
     simulation: Simulation
     landmarks: tuple[Landmark, ...]
+
+
+NAMES = (
+    "Arun", "Maya", "Vivek", "Ananya", "Rahul", "Diya", "Nikhil", "Isha",
+    "Aditya", "Meera", "Kiran", "Riya", "Rohan", "Asha", "Sanjay", "Neha",
+    "Akhil", "Priya", "Varun", "Sneha", "Arjun", "Nandita", "Manu", "Tara",
+    "Amit", "Kavya", "Ravi", "Pooja", "Dev", "Lakshmi", "Vishal", "Anu",
+    "Joel", "Sara", "Naveen", "Aditi", "Imran", "Farah", "Sameer", "Zoya",
+    "Irfan", "Hana", "Kabir", "Nisha", "Yash", "Sana", "Rakesh", "Mira",
+    "Ajay", "Leena", "Suraj", "Nitya", "Rohit", "Alina", "Faisal", "Jaya",
+    "Suresh", "Mina", "Karthik", "Reshma",
+)
+
+OCCUPATION_TYPES = (
+    ("office", "Office worker"),
+    ("student", "Student"),
+    ("healthcare", "Healthcare worker"),
+    ("retail", "Retail worker"),
+    ("retired", "Retired"),
+)
+
+
+def _routine(
+    *entries: tuple[ActivityType, str, Vector2, int, int, float],
+) -> tuple[RoutineEntry, ...]:
+    return tuple(
+        RoutineEntry(
+            activity=activity,
+            description=description,
+            target_position=target,
+            start_tick=start,
+            end_tick=end,
+            importance=importance,
+        )
+        for activity, description, target, start, end, importance in entries
+    )
+
+
+def _build_profile(
+    index: int,
+    home: Vector2,
+    office: Vector2,
+    school: Vector2,
+    hospital: Vector2,
+    market: Vector2,
+    park: Vector2,
+    cafe: Vector2,
+    entertainment: Vector2,
+    station: Vector2,
+) -> AgentProfile:
+    kind, occupation = OCCUPATION_TYPES[index % len(OCCUPATION_TYPES)]
+    leisure = (park, cafe, entertainment)[index % 3]
+    social_preference = (0.3, 0.55, 0.7, 0.45, 0.8)[index % 5]
+
+    if kind == "student":
+        routine = _routine(
+            (ActivityType.HOME, "Morning at home", home, 0, 55, 0.45),
+            (ActivityType.COMMUTE, "Travel to school", school, 55, 70, 0.7),
+            (ActivityType.STUDY, "Attend school", school, 70, 145, 0.9),
+            (ActivityType.EAT, "Lunch break", cafe, 145, 165, 0.6),
+            (ActivityType.STUDY, "Afternoon classes", school, 165, 185, 0.85),
+            (ActivityType.COMMUTE, "Travel home", home, 185, 200, 0.65),
+            (ActivityType.SOCIAL, "Meet friends", leisure, 200, 225, 0.65),
+            (ActivityType.HOME, "Evening at home", home, 225, 240, 0.4),
+        )
+        work = school
+    elif kind == "healthcare":
+        routine = _routine(
+            (ActivityType.HOME, "Morning at home", home, 0, 50, 0.4),
+            (ActivityType.COMMUTE, "Travel to hospital", hospital, 50, 70, 0.75),
+            (ActivityType.WORK, "Hospital shift", hospital, 70, 150, 1.0),
+            (ActivityType.EAT, "Lunch break", market, 150, 165, 0.55),
+            (ActivityType.WORK, "Hospital shift", hospital, 165, 190, 1.0),
+            (ActivityType.COMMUTE, "Travel home", home, 190, 210, 0.65),
+            (ActivityType.LEISURE, "Evening leisure", leisure, 210, 228, 0.5),
+            (ActivityType.HOME, "Evening at home", home, 228, 240, 0.4),
+        )
+        work = hospital
+    elif kind == "retail":
+        routine = _routine(
+            (ActivityType.HOME, "Morning at home", home, 0, 55, 0.4),
+            (ActivityType.COMMUTE, "Travel to market", market, 55, 70, 0.7),
+            (ActivityType.WORK, "Market shift", market, 70, 145, 0.9),
+            (ActivityType.EAT, "Lunch break", cafe, 145, 165, 0.55),
+            (ActivityType.WORK, "Market shift", market, 165, 195, 0.9),
+            (ActivityType.COMMUTE, "Travel home", home, 195, 212, 0.65),
+            (ActivityType.SOCIAL, "Meet people", leisure, 212, 230, 0.6),
+            (ActivityType.HOME, "Evening at home", home, 230, 240, 0.4),
+        )
+        work = market
+    elif kind == "retired":
+        routine = _routine(
+            (ActivityType.HOME, "Morning at home", home, 0, 65, 0.4),
+            (ActivityType.EAT, "Morning outing", cafe, 65, 85, 0.55),
+            (ActivityType.LEISURE, "Walk in the park", park, 85, 120, 0.65),
+            (ActivityType.SHOP, "Shopping", market, 120, 145, 0.65),
+            (ActivityType.HOME, "Afternoon at home", home, 145, 180, 0.4),
+            (ActivityType.SOCIAL, "Social visit", leisure, 180, 215, 0.7),
+            (ActivityType.HOME, "Evening at home", home, 215, 240, 0.4),
+        )
+        work = None
+    else:
+        routine = _routine(
+            (ActivityType.HOME, "Morning at home", home, 0, 55, 0.4),
+            (ActivityType.COMMUTE, "Commute to work", office, 55, 72, 0.7),
+            (ActivityType.WORK, "Workday", office, 72, 145, 0.9),
+            (ActivityType.EAT, "Lunch break", cafe, 145, 165, 0.55),
+            (ActivityType.WORK, "Afternoon work", office, 165, 190, 0.9),
+            (ActivityType.COMMUTE, "Commute home", home, 190, 208, 0.65),
+            (ActivityType.LEISURE, "Evening outing", leisure, 208, 230, 0.55),
+            (ActivityType.HOME, "Evening at home", home, 230, 240, 0.4),
+        )
+        work = office
+
+    return AgentProfile(
+        name=NAMES[index % len(NAMES)],
+        occupation=occupation,
+        home_position=home,
+        work_position=work,
+        leisure_position=leisure,
+        social_preference=social_preference,
+        routine=routine,
+    )
 
 
 def create_baseline_scenario(
@@ -56,15 +185,40 @@ def create_baseline_scenario(
         Landmark("bus_depot", "Bus Depot", Vector2(158.0, 76.0), 7.0),
     )
 
-    agents = list(simulation.agents.values())
+    landmark_map = {landmark.landmark_id: landmark for landmark in landmarks}
+    home_centers = (
+        landmark_map["homes_north"].position,
+        landmark_map["south_homes"].position,
+    )
 
+    agents = list(simulation.agents.values())
     for index, agent in enumerate(agents):
-        landmark = landmarks[index % len(landmarks)]
+        home_center = home_centers[index % len(home_centers)]
+        home = Vector2(
+            home_center.x + ((index * 7) % 13 - 6) * 0.45,
+            home_center.y + ((index * 11) % 13 - 6) * 0.45,
+        )
+        profile = _build_profile(
+            index,
+            home,
+            landmark_map["office"].position,
+            landmark_map["school"].position,
+            landmark_map["hospital"].position,
+            landmark_map["market"].position,
+            landmark_map["park"].position,
+            landmark_map["cafe"].position,
+            landmark_map["entertainment"].position,
+            landmark_map["station"].position,
+        )
+        agent.profile = profile
+        agent.position = home
+        first_routine = profile.routine[0]
+        agent.current_activity = first_routine.activity
         agent.goal = Goal(
             goal_id=f"goal-{index + 1:04d}",
-            description=f"Visit {landmark.name}",
-            target_position=landmark.position,
-            importance=0.35 + (index % 4) * 0.2,
+            description=first_routine.description,
+            target_position=first_routine.target_position,
+            importance=first_routine.importance,
         )
 
         if len(agents) > 1:
@@ -76,8 +230,6 @@ def create_baseline_scenario(
                 agents[(index + 2) % len(agents)].agent_id
             )
 
-    # Generate a reproducible event schedule from the scenario seed. The
-    # event times are random-looking, but a seed makes experiments repeatable.
     rng = random.Random(seed + 10_000)
     event_types = (
         ("market_rush", "Market rush"),
