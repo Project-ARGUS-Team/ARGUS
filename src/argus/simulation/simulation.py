@@ -109,6 +109,17 @@ class Simulation:
                 )
             )
 
+        current_routine = None
+        if agent.profile is not None:
+            current_routine = next(
+                (
+                    entry
+                    for entry in agent.profile.routine
+                    if entry.contains(self.current_tick, 240)
+                ),
+                None,
+            )
+
         active_events = []
         for event in self.state.events.values():
             if event.is_active(self.current_tick):
@@ -134,6 +145,9 @@ class Simulation:
             goal=agent.goal,
             current_action=agent.current_action,
             plan=tuple(agent.plan),
+            profile=agent.profile,
+            current_activity=agent.current_activity,
+            current_routine=current_routine,
             nearby_agents=tuple(nearby_agents),
             active_events=tuple(active_events),
             social_connections=tuple(sorted(agent.social_connections)),
@@ -142,6 +156,11 @@ class Simulation:
     def apply_state_delta(self, agent_id: str, delta: StateDelta) -> None:
         """Apply a cognitive result to authoritative agent state."""
         agent = self.state.agents[agent_id]
+
+        if delta.goal is not None:
+            agent.goal = delta.goal
+        if delta.activity is not None:
+            agent.current_activity = delta.activity
 
         if delta.plan:
             agent.plan = list(delta.plan)
