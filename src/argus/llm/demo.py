@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from argus.simulation.agent import Action, ActionType
+from argus.simulation.agent import Action, ActionType, ActivityType
 from argus.simulation.context import AgentContext, StateDelta
 from argus.simulation.world import RoadSegment, Vector2
 
@@ -215,9 +215,18 @@ class ScenarioLLMProvider:
                     context.agent_id,
                     blocked,
                 )
+                trip_goal = type(goal)(
+                    goal_id=(
+                        f"{context.agent_id}-"
+                        f"{context.simulation_tick // 720:04d}-trip"
+                    ),
+                    description="Continue current trip",
+                    target_position=trip_destination,
+                    importance=goal.importance,
+                )
                 return StateDelta(
-                    goal=goal,
-                    activity=activity,
+                    goal=trip_goal,
+                    activity=ActivityType.COMMUTE,
                     travel_destination=trip_destination,
                     action=Action(
                         action_type=ActionType.MOVE,
