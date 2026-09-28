@@ -21,7 +21,7 @@ class SimulationViewer:
         self.scale = pixels_per_unit
         self.paused = True
         self.running = False
-        self.speed = 0.5
+        self.speed = 1.0
         self.selected_agent_id: str | None = None
         self._install_scenario(scenario)
 
@@ -84,7 +84,7 @@ class SimulationViewer:
             font=("TkDefaultFont", 10, "bold"),
         ).pack(anchor=tk.W)
 
-        self.speed_label = tk.Label(inspector, text="0.50×")
+        self.speed_label = tk.Label(inspector, text="1.00×")
         self.speed_label.pack(anchor=tk.W)
 
         self.speed_scale = tk.Scale(
