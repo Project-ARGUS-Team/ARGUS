@@ -28,11 +28,22 @@ class Landmark:
 
 
 @dataclass(frozen=True, slots=True)
+class RoadSegment:
+    """A pedestrian road represented by two connected points."""
+
+    road_id: str
+    name: str
+    start: Vector2
+    end: Vector2
+
+
+@dataclass(frozen=True, slots=True)
 class BaselineScenario:
     """A city-scale world containing locations, routines and events."""
 
     simulation: Simulation
     landmarks: tuple[Landmark, ...]
+    roads: tuple[RoadSegment, ...] = ()
 
 
 NAMES = (
@@ -185,6 +196,21 @@ def create_baseline_scenario(
         Landmark("bus_depot", "Bus Depot", Vector2(158.0, 76.0), 7.0),
     )
 
+    roads = (
+        RoadSegment("road-north-west", "North Avenue", Vector2(25, 18), Vector2(62, 16)),
+        RoadSegment("road-north-east", "Hospital Avenue", Vector2(62, 16), Vector2(145, 18)),
+        RoadSegment("road-central-west", "Market Road", Vector2(25, 58), Vector2(88, 55)),
+        RoadSegment("road-central-east", "Station Road", Vector2(88, 55), Vector2(145, 55)),
+        RoadSegment("road-south-west", "Park Road", Vector2(45, 94), Vector2(82, 88)),
+        RoadSegment("road-south-east", "Entertainment Road", Vector2(82, 88), Vector2(128, 92)),
+        RoadSegment("road-south-homes", "South Avenue", Vector2(128, 92), Vector2(165, 100)),
+        RoadSegment("road-vertical-west", "West Connector", Vector2(25, 18), Vector2(30, 58)),
+        RoadSegment("road-vertical-central", "Central Boulevard", Vector2(88, 55), Vector2(82, 88)),
+        RoadSegment("road-vertical-east", "East Connector", Vector2(145, 18), Vector2(145, 55)),
+        RoadSegment("road-office", "Office Connector", Vector2(108, 34), Vector2(88, 55)),
+        RoadSegment("road-depot", "Depot Connector", Vector2(145, 55), Vector2(158, 76)),
+    )
+
     landmark_map = {landmark.landmark_id: landmark for landmark in landmarks}
     home_centers = (
         landmark_map["homes_north"].position,
@@ -277,4 +303,5 @@ def create_baseline_scenario(
     return BaselineScenario(
         simulation=simulation,
         landmarks=landmarks,
+        roads=roads,
     )
