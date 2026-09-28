@@ -47,3 +47,34 @@ def test_baseline_scenario_events_are_reproducible_and_spread_out() -> None:
         event.end_tick > event.start_tick
         for event in scenario.simulation.state.events.values()
     )
+
+
+def test_agents_have_distinct_persistent_profiles_and_routines() -> None:
+    scenario = create_baseline_scenario(agent_count=20, seed=42)
+    profiles = [
+        agent.profile
+        for agent in scenario.simulation.agents.values()
+    ]
+
+    assert all(profile is not None for profile in profiles)
+    assert len({profile.name for profile in profiles if profile is not None}) == 20
+    assert len({profile.occupation for profile in profiles if profile is not None}) >= 4
+    assert all(
+        profile.routine
+        for profile in profiles
+        if profile is not None
+    )
+    assert all(
+        len(profile.routine) >= 7
+        for profile in profiles
+        if profile is not None
+    )
+
+
+def test_agents_start_at_home_with_home_activity() -> None:
+    scenario = create_baseline_scenario(agent_count=10, seed=42)
+
+    for agent in scenario.simulation.agents.values():
+        assert agent.profile is not None
+        assert agent.position == agent.profile.home_position
+        assert agent.current_activity.value == "home"
