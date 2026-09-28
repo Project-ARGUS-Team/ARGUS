@@ -225,14 +225,20 @@ class SimulationViewer:
             )
         ]
 
+        display_name = agent.profile.name if agent.profile else agent.agent_id
+        occupation = agent.profile.occupation if agent.profile else "No occupation"
+
         text = (
-            f"{agent.agent_id}\n\n"
+            f"{display_name}\n"
+            f"{occupation}\n\n"
             f"POSITION\n"
             f"  ({agent.position.x:.1f}, {agent.position.y:.1f})\n"
             f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})\n\n"
             f"ACTION\n"
             f"  {self._action_label(action)}\n"
             f"  target: {self._landmark_name(target)}\n\n"
+            f"ACTIVITY\n"
+            f"  {agent.current_activity.value.upper()}\n\n"
             f"GOAL\n"
             f"  {agent.goal.description}\n"
             f"  importance: {agent.goal.importance:.2f}\n\n"
