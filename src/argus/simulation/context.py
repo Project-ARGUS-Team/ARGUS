@@ -30,6 +30,8 @@ class EventObservation:
     position: Vector2
     distance: float
     is_participant: bool = False
+    importance: float = 0.5
+    affected_road_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +49,9 @@ class AgentContext:
     profile: AgentProfile | None = None
     current_activity: ActivityType = ActivityType.HOME
     current_routine: RoutineEntry | None = None
+    travel_destination: Vector2 | None = None
+    closed_road_ids: tuple[str, ...] = ()
+    traffic_factor: float = 1.0
     nearby_agents: tuple[AgentObservation, ...] = ()
     active_events: tuple[EventObservation, ...] = ()
     social_connections: tuple[str, ...] = ()
