@@ -28,6 +28,51 @@ class Goal:
     importance: float
 
 
+class ActivityType(StrEnum):
+    """High-level activities used by an agent's daily routine."""
+
+    HOME = "home"
+    COMMUTE = "commute"
+    WORK = "work"
+    STUDY = "study"
+    SHOP = "shop"
+    EAT = "eat"
+    LEISURE = "leisure"
+    SOCIAL = "social"
+
+
+@dataclass(frozen=True, slots=True)
+class RoutineEntry:
+    """One time-bounded activity in an agent's recurring routine."""
+
+    activity: ActivityType
+    description: str
+    target_position: Vector2
+    start_tick: int
+    end_tick: int
+    importance: float = 0.5
+
+    def contains(self, tick: int, day_length: int) -> bool:
+        """Return whether this entry is active at the given simulation tick."""
+        if self.end_tick <= self.start_tick:
+            return False
+        local_tick = tick % day_length
+        return self.start_tick <= local_tick < self.end_tick
+
+
+@dataclass(frozen=True, slots=True)
+class AgentProfile:
+    """Persistent identity and preferences for one simulated person."""
+
+    name: str
+    occupation: str
+    home_position: Vector2
+    work_position: Vector2 | None = None
+    leisure_position: Vector2 | None = None
+    social_preference: float = 0.5
+    routine: tuple[RoutineEntry, ...] = ()
+
+
 class ActionType(StrEnum):
     """Actions understood by the simulation core."""
 
@@ -54,6 +99,8 @@ class AgentState:
     position: Vector2
     velocity: Vector2
     goal: Goal
+    profile: AgentProfile | None = None
+    current_activity: ActivityType = ActivityType.HOME
     current_action: Action | None = None
     plan: list[Action] = field(default_factory=list)
     social_connections: set[str] = field(default_factory=set)
