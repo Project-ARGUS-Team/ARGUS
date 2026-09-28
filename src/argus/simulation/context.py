@@ -48,6 +48,7 @@ class AgentContext:
     plan: tuple[Action, ...]
     profile: AgentProfile | None = None
     current_activity: ActivityType = ActivityType.HOME
+    transport_mode: str = "walk"
     current_routine: RoutineEntry | None = None
     travel_destination: Vector2 | None = None
     closed_road_ids: tuple[str, ...] = ()
