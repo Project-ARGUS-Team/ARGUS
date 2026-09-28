@@ -10,11 +10,12 @@ from argus.simulation.agent import (
     AgentProfile,
     Goal,
     RoutineEntry,
+    TransportMode,
     Vector2,
 )
 from argus.simulation.events import WorldEvent
 from argus.simulation.simulation import Simulation
-from argus.simulation.world import World
+from argus.simulation.world import RoadSegment, World
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,16 +26,6 @@ class Landmark:
     name: str
     position: Vector2
     radius: float = 6.0
-
-
-@dataclass(frozen=True, slots=True)
-class RoadSegment:
-    """A pedestrian road represented by two connected points."""
-
-    road_id: str
-    name: str
-    start: Vector2
-    end: Vector2
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,12 +166,6 @@ def create_baseline_scenario(
 ) -> BaselineScenario:
     """Create a deterministic but varied small-city baseline scenario."""
     world = World(width=180.0, height=120.0, tick_duration=1.0)
-    simulation = Simulation.create(
-        agent_count=agent_count,
-        seed=seed,
-        world=world,
-    )
-
     landmarks = (
         Landmark("homes_north", "North Homes", Vector2(25.0, 18.0), 9.0),
         Landmark("school", "School", Vector2(62.0, 16.0), 7.0),
@@ -211,6 +196,13 @@ def create_baseline_scenario(
         RoadSegment("road-depot", "Depot Connector", Vector2(145, 55), Vector2(158, 76)),
     )
 
+    simulation = Simulation.create(
+        agent_count=agent_count,
+        seed=seed,
+        world=world,
+        roads=roads,
+    )
+
     landmark_map = {landmark.landmark_id: landmark for landmark in landmarks}
     home_centers = (
         landmark_map["homes_north"].position,
@@ -237,6 +229,11 @@ def create_baseline_scenario(
             landmark_map["station"].position,
         )
         agent.profile = profile
+        agent.transport_mode = (
+            TransportMode.CAR
+            if index % 5 in (0, 1)
+            else TransportMode.WALK
+        )
         agent.position = home
         first_routine = profile.routine[0]
         agent.current_activity = first_routine.activity
@@ -275,24 +272,38 @@ def create_baseline_scenario(
         landmark = landmarks[rng.randrange(len(landmarks))]
         start_tick = rng.randint(20, 520)
         duration = rng.randint(12, 45)
-        participant_count = (
-            max(1, agent_count // rng.randint(5, 9))
-            if agents
-            else 0
-        )
-        participants = {
-            agents[rng.randrange(len(agents))].agent_id
-            for _ in range(participant_count)
-        }
+
+        affected_road_ids: tuple[str, ...] = ()
+        if event_type == "road_closure":
+            road = roads[rng.randrange(len(roads))]
+            position = Vector2(
+                (road.start.x + road.end.x) / 2,
+                (road.start.y + road.end.y) / 2,
+            )
+            affected_road_ids = (road.road_id,)
+            participants: set[str] = set()
+        else:
+            position = landmark.position
+            participant_count = (
+                max(1, agent_count // rng.randint(5, 9))
+                if agents
+                else 0
+            )
+            participants = {
+                agents[rng.randrange(len(agents))].agent_id
+                for _ in range(participant_count)
+            }
+
         events.append(
             WorldEvent(
                 event_id=f"event-{index + 1:03d}",
                 event_type=event_type,
-                position=landmark.position,
+                position=position,
                 start_tick=start_tick,
                 end_tick=start_tick + duration,
                 participants=participants,
                 importance=rng.uniform(0.35, 1.0),
+                affected_road_ids=affected_road_ids,
             )
         )
 
