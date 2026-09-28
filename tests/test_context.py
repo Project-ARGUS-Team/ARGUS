@@ -38,11 +38,11 @@ def test_state_delta_move_is_translated_into_velocity() -> None:
         ),
     )
 
-    assert agent.velocity == Vector2(0.6, 0.8)
+    assert agent.velocity == Vector2(1.2, 1.6)
 
     simulation.tick()
 
-    assert agent.position == Vector2(start.x + 0.6, start.y + 0.8)
+    assert agent.position == Vector2(start.x + 1.2, start.y + 1.6)
 
 
 def test_wait_clears_velocity() -> None:
