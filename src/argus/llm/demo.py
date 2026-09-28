@@ -12,11 +12,9 @@ from argus.simulation.world import Vector2
 class ScenarioLLMProvider:
     """Deterministic cognitive provider used by the baseline demonstration.
 
-    The provider deliberately creates varied, repeatable behavior without an
-    external model. Agents follow rotating landmark routes, pause at
-    destinations, respond to events, and occasionally interact with nearby
-    agents. The same provider can therefore drive the baseline through the
-    same cognitive interface that a real LLM gateway will use.
+    The provider models a simple recurring daily routine rather than a single
+    route. It reacts to active events first, then follows the agent's current
+    routine, and finally adds small amounts of social variation.
     """
 
     def __init__(
@@ -69,7 +67,7 @@ class ScenarioLLMProvider:
     def request_cognitive_update(self, context: AgentContext) -> StateDelta:
         self.call_count += 1
 
-        # Event participation takes priority over routine behavior.
+        # Unexpected events take priority over the normal routine.
         participating_events = [
             event for event in context.active_events if event.is_participant
         ]
@@ -80,34 +78,81 @@ class ScenarioLLMProvider:
                     action=Action(
                         action_type=ActionType.INTERACT,
                         target_position=event.position,
-                    )
+                    ),
                 )
             return StateDelta(
                 action=Action(
                     action_type=ActionType.MOVE,
                     target_position=event.position,
-                )
+                ),
             )
 
-        # A subset of agents will pause to interact when another agent is
-        # nearby. This is deterministic but gives the baseline social motion.
-        index = self._agent_index(context.agent_id)
-        if index % 3 == 0 and context.nearby_agents:
-            nearby = min(context.nearby_agents, key=lambda item: item.distance)
-            if nearby.distance <= self.social_radius:
-                return StateDelta(
-                    action=Action(
-                        action_type=ActionType.INTERACT,
-                        target_agent_id=nearby.agent_id,
-                        target_position=nearby.position,
-                    )
+        routine = context.current_routine
+        if routine is not None:
+            activity = routine.activity
+            goal = context.goal
+            if (
+                goal.target_position != routine.target_position
+                or goal.description != routine.description
+            ):
+                goal = type(goal)(
+                    goal_id=(
+                        f"{context.agent_id}-"
+                        f"{context.simulation_tick // 240:04d}-"
+                        f"{routine.activity.value}"
+                    ),
+                    description=routine.description,
+                    target_position=routine.target_position,
+                    importance=routine.importance,
                 )
 
+            distance = self._distance(
+                context.position,
+                routine.target_position,
+            )
+
+            if activity.value == "social" and context.nearby_agents:
+                nearby = min(
+                    context.nearby_agents,
+                    key=lambda item: item.distance,
+                )
+                if nearby.distance <= self.social_radius:
+                    return StateDelta(
+                        goal=goal,
+                        activity=activity,
+                        action=Action(
+                            action_type=ActionType.INTERACT,
+                            target_agent_id=nearby.agent_id,
+                            target_position=nearby.position,
+                        ),
+                    )
+
+            if distance <= self.arrival_radius:
+                return StateDelta(
+                    goal=goal,
+                    activity=activity,
+                    action=Action(
+                        action_type=ActionType.WAIT,
+                        target_position=routine.target_position,
+                    ),
+                )
+
+            return StateDelta(
+                goal=goal,
+                activity=activity,
+                action=Action(
+                    action_type=ActionType.MOVE,
+                    target_position=routine.target_position,
+                ),
+            )
+
+        # Fallback for agents created outside the city scenario.
         target = self._route_target(context)
         if target is None:
             return StateDelta(action=Action(action_type=ActionType.WAIT))
 
         distance = self._distance(context.position, target)
+        index = self._agent_index(context.agent_id)
         phase = (context.simulation_tick + index * 7) % self.cycle_ticks
         if distance <= self.arrival_radius and phase >= (
             self.cycle_ticks - self.dwell_ticks
