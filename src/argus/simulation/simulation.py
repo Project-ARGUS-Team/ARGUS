@@ -120,7 +120,7 @@ class Simulation:
                 (
                     entry
                     for entry in agent.profile.routine
-                    if entry.contains(self.current_tick, 240)
+                    if entry.contains(self.current_tick, 720)
                 ),
                 None,
             )
@@ -189,7 +189,7 @@ class Simulation:
                 agent.velocity = Vector2(0.0, 0.0)
                 return
 
-            speed = 1.0
+            speed = 2.0
             agent.velocity = Vector2(
                 x=(dx / distance) * speed,
                 y=(dy / distance) * speed,
