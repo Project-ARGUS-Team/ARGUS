@@ -178,6 +178,7 @@ class Simulation:
             plan=tuple(agent.plan),
             profile=agent.profile,
             current_activity=agent.current_activity,
+            transport_mode=agent.transport_mode.value,
             current_routine=current_routine,
             travel_destination=agent.travel_destination,
             closed_road_ids=closed_road_ids,
