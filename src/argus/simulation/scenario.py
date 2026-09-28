@@ -89,33 +89,33 @@ def _build_profile(
 
     if kind == "student":
         routine = _routine(
-            (ActivityType.HOME, "Morning at home", home, 0, 55, 0.45),
-            (ActivityType.COMMUTE, "Travel to school", school, 55, 70, 0.7),
-            (ActivityType.STUDY, "Attend school", school, 70, 145, 0.9),
-            (ActivityType.EAT, "Lunch break", cafe, 145, 165, 0.6),
-            (ActivityType.STUDY, "Afternoon classes", school, 165, 185, 0.85),
-            (ActivityType.COMMUTE, "Travel home", home, 185, 200, 0.65),
-            (ActivityType.SOCIAL, "Meet friends", leisure, 200, 225, 0.65),
-            (ActivityType.HOME, "Evening at home", home, 225, 240, 0.4),
+            (ActivityType.HOME, "Morning at home", home, 0, 20, 0.45),
+            (ActivityType.COMMUTE, "Travel to school", school, 20, 45, 0.7),
+            (ActivityType.STUDY, "Attend school", school, 45, 125, 0.9),
+            (ActivityType.EAT, "Lunch break", cafe, 125, 145, 0.6),
+            (ActivityType.STUDY, "Afternoon classes", school, 145, 175, 0.85),
+            (ActivityType.COMMUTE, "Travel home", home, 175, 195, 0.65),
+            (ActivityType.SOCIAL, "Meet friends", leisure, 195, 220, 0.65),
+            (ActivityType.HOME, "Evening at home", home, 220, 240, 0.4),
         )
         work = school
     elif kind == "healthcare":
         routine = _routine(
-            (ActivityType.HOME, "Morning at home", home, 0, 50, 0.4),
-            (ActivityType.COMMUTE, "Travel to hospital", hospital, 50, 70, 0.75),
-            (ActivityType.WORK, "Hospital shift", hospital, 70, 150, 1.0),
-            (ActivityType.EAT, "Lunch break", market, 150, 165, 0.55),
-            (ActivityType.WORK, "Hospital shift", hospital, 165, 190, 1.0),
-            (ActivityType.COMMUTE, "Travel home", home, 190, 210, 0.65),
-            (ActivityType.LEISURE, "Evening leisure", leisure, 210, 228, 0.5),
-            (ActivityType.HOME, "Evening at home", home, 228, 240, 0.4),
+            (ActivityType.HOME, "Morning at home", home, 0, 18, 0.4),
+            (ActivityType.COMMUTE, "Travel to hospital", hospital, 18, 43, 0.75),
+            (ActivityType.WORK, "Hospital shift", hospital, 43, 125, 1.0),
+            (ActivityType.EAT, "Lunch break", market, 125, 145, 0.55),
+            (ActivityType.WORK, "Hospital shift", hospital, 145, 175, 1.0),
+            (ActivityType.COMMUTE, "Travel home", home, 175, 195, 0.65),
+            (ActivityType.LEISURE, "Evening leisure", leisure, 195, 220, 0.5),
+            (ActivityType.HOME, "Evening at home", home, 220, 240, 0.4),
         )
         work = hospital
     elif kind == "retail":
         routine = _routine(
             (ActivityType.HOME, "Morning at home", home, 0, 55, 0.4),
-            (ActivityType.COMMUTE, "Travel to market", market, 55, 70, 0.7),
-            (ActivityType.WORK, "Market shift", market, 70, 145, 0.9),
+            (ActivityType.COMMUTE, "Travel to market", market, 20, 45, 0.7),
+            (ActivityType.WORK, "Market shift", market, 45, 125, 0.9),
             (ActivityType.EAT, "Lunch break", cafe, 145, 165, 0.55),
             (ActivityType.WORK, "Market shift", market, 165, 195, 0.9),
             (ActivityType.COMMUTE, "Travel home", home, 195, 212, 0.65),
@@ -125,13 +125,13 @@ def _build_profile(
         work = market
     elif kind == "retired":
         routine = _routine(
-            (ActivityType.HOME, "Morning at home", home, 0, 65, 0.4),
-            (ActivityType.EAT, "Morning outing", cafe, 65, 85, 0.55),
-            (ActivityType.LEISURE, "Walk in the park", park, 85, 120, 0.65),
-            (ActivityType.SHOP, "Shopping", market, 120, 145, 0.65),
-            (ActivityType.HOME, "Afternoon at home", home, 145, 180, 0.4),
-            (ActivityType.SOCIAL, "Social visit", leisure, 180, 215, 0.7),
-            (ActivityType.HOME, "Evening at home", home, 215, 240, 0.4),
+            (ActivityType.HOME, "Morning at home", home, 0, 25, 0.4),
+            (ActivityType.EAT, "Morning outing", cafe, 25, 50, 0.55),
+            (ActivityType.LEISURE, "Walk in the park", park, 50, 95, 0.65),
+            (ActivityType.SHOP, "Shopping", market, 95, 125, 0.65),
+            (ActivityType.HOME, "Afternoon at home", home, 125, 165, 0.4),
+            (ActivityType.SOCIAL, "Social visit", leisure, 165, 205, 0.7),
+            (ActivityType.HOME, "Evening at home", home, 205, 240, 0.4),
         )
         work = None
     else:
