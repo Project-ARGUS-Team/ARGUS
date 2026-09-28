@@ -16,6 +16,7 @@ class WorldEvent:
     end_tick: int
     participants: set[str] = field(default_factory=set)
     importance: float = 0.5
+    affected_road_ids: tuple[str, ...] = ()
 
     def is_active(self, tick: int) -> bool:
         return self.start_tick <= tick <= self.end_tick
