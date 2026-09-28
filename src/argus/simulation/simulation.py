@@ -257,8 +257,17 @@ class Simulation:
             distance = (dx * dx + dy * dy) ** 0.5
             if event.event_type == "market_rush" and distance <= 25.0:
                 factor = max(0.45, factor - 0.20)
-            elif event.event_type in {"public_gathering", "sports_event"} and distance <= 20.0:
+            elif event.event_type in {
+                "public_gathering",
+                "community_fair",
+                "sports_event",
+                "school_event",
+            } and distance <= 20.0:
                 factor = max(0.45, factor - 0.10)
+            elif event.event_type == "minor_accident" and distance <= 15.0:
+                factor = max(0.45, factor - 0.18)
+            elif event.event_type == "medical_alert" and distance <= 12.0:
+                factor = max(0.45, factor - 0.08)
         return factor
 
     def request_cognitive_update(
