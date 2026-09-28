@@ -7,7 +7,12 @@ import random
 from typing import TYPE_CHECKING
 
 from argus.simulation.agent import ActionType, AgentState, Goal, Vector2
-from argus.simulation.context import AgentContext, AgentObservation, EventObservation, StateDelta
+from argus.simulation.context import (
+    AgentContext,
+    AgentObservation,
+    EventObservation,
+    StateDelta,
+)
 from argus.simulation.events import WorldEvent
 from argus.simulation.world import World
 
