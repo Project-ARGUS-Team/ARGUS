@@ -251,8 +251,8 @@ class SimulationViewer:
         self.agent_info.config(text=text)
 
     def _time_of_day(self) -> str:
-        """Convert the 240-tick simulation day into a readable clock."""
-        minutes = (6 * 60 + (self.simulation.current_tick % 240) * 6) % (24 * 60)
+        """Convert the 720-tick simulation day into a readable clock."""
+        minutes = (6 * 60 + (self.simulation.current_tick % 720) * 2) % (24 * 60)
         return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
     def _draw(self) -> None:
