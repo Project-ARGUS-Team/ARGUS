@@ -191,12 +191,12 @@ class ScenarioLLMProvider:
                 and self._distance(
                     context.position,
                     context.current_action.target_position,
-                    context.agent_id,
                 ) > self.arrival_radius
             ):
                 target = self._road_waypoint(
                     context.position,
                     context.current_action.target_position,
+                    context.agent_id,
                 )
                 return StateDelta(
                     goal=goal,
