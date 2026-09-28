@@ -1,8 +1,27 @@
 """Simulation world and movement mechanics."""
 
 from dataclasses import dataclass
+import math
 
 from argus.simulation.agent import ActionType, AgentState, Vector2
+
+
+@dataclass(frozen=True, slots=True)
+class RoadSegment:
+    """A connected road segment in the simulation navigation network."""
+
+    road_id: str
+    name: str
+    start: Vector2
+    end: Vector2
+    speed_limit: float = 6.0
+    capacity: int = 8
+    pedestrian_allowed: bool = True
+    vehicle_allowed: bool = True
+
+    @property
+    def length(self) -> float:
+        return math.hypot(self.end.x - self.start.x, self.end.y - self.start.y)
 
 
 @dataclass(frozen=True, slots=True)
