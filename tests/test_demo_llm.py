@@ -27,7 +27,7 @@ def test_demo_provider_follows_current_routine() -> None:
 def test_demo_provider_moves_when_routine_requires_commute() -> None:
     scenario = create_baseline_scenario(agent_count=1)
     agent = scenario.simulation.agents["agent-0001"]
-    scenario.simulation.state.tick = 75
+    scenario.simulation.state.tick = 180
     provider = ScenarioLLMProvider()
 
     delta = provider.request_cognitive_update(
