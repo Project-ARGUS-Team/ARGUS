@@ -6,8 +6,7 @@ import math
 
 from argus.simulation.agent import Action, ActionType
 from argus.simulation.context import AgentContext, StateDelta
-from argus.simulation.world import Vector2
-from argus.simulation.scenario import RoadSegment
+from argus.simulation.world import RoadSegment, Vector2
 
 
 class ScenarioLLMProvider:
@@ -69,7 +68,13 @@ class ScenarioLLMProvider:
 
 
 
-    def _road_waypoint(self, position: Vector2, target: Vector2, agent_id: str = "") -> Vector2:
+    def _road_waypoint(
+        self,
+        position: Vector2,
+        target: Vector2,
+        agent_id: str = "",
+        blocked_road_ids: tuple[str, ...] = (),
+    ) -> Vector2:
         """Return a waypoint on the pedestrian network toward a target."""
         if not self.roads:
             return target
@@ -81,7 +86,10 @@ class ScenarioLLMProvider:
 
         nodes: list[Vector2] = []
         edges: dict[tuple[float, float], list[tuple[Vector2, float]]] = {}
+        blocked = set(blocked_road_ids)
         for road in self.roads:
+            if road.road_id in blocked:
+                continue
             for a, b in ((road.start, road.end), (road.end, road.start)):
                 ka = (a.x, a.y)
                 nodes.extend((a, b))
@@ -182,25 +190,35 @@ class ScenarioLLMProvider:
             )
 
             # Never abandon an unfinished trip just because the clock crossed
-            # into the next activity. Physical arrival takes precedence.
-            if (
+            # into the next activity. The explicit travel destination is the
+            # physical commitment; the action target may be a road waypoint.
+            trip_destination = context.travel_destination
+            if trip_destination is None and (
                 context.current_action is not None
                 and context.current_action.action_type == ActionType.MOVE
-                and context.current_action.target_position is not None
-                and distance > self.arrival_radius
-                and self._distance(
-                    context.position,
-                    context.current_action.target_position,
-                ) > self.arrival_radius
             ):
+                trip_destination = context.current_action.target_position
+
+            if (
+                trip_destination is not None
+                and self._distance(context.position, trip_destination)
+                > self.arrival_radius
+            ):
+                blocked = (
+                    context.closed_road_ids
+                    if context.transport_mode == "car"
+                    else ()
+                )
                 target = self._road_waypoint(
                     context.position,
-                    context.current_action.target_position,
+                    trip_destination,
                     context.agent_id,
+                    blocked,
                 )
                 return StateDelta(
                     goal=goal,
                     activity=activity,
+                    travel_destination=trip_destination,
                     action=Action(
                         action_type=ActionType.MOVE,
                         target_position=target,
@@ -233,12 +251,21 @@ class ScenarioLLMProvider:
                     ),
                 )
 
+            target = self._road_waypoint(
+                context.position,
+                routine.target_position,
+                context.agent_id,
+                context.closed_road_ids
+                if context.transport_mode == "car"
+                else (),
+            )
             return StateDelta(
                 goal=goal,
                 activity=activity,
+                travel_destination=routine.target_position,
                 action=Action(
                     action_type=ActionType.MOVE,
-                    target_position=routine.target_position,
+                    target_position=target,
                 ),
             )
 
