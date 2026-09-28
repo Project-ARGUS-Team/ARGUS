@@ -3,8 +3,11 @@
 from argus.simulation.agent import (
     Action,
     ActionType,
+    ActivityType,
+    AgentProfile,
     AgentState,
     Goal,
+    RoutineEntry,
     Vector2,
 )
 from argus.simulation.context import (
@@ -25,12 +28,15 @@ from argus.simulation.world import World
 __all__ = [
     "Action",
     "ActionType",
+    "ActivityType",
+    "AgentProfile",
     "AgentContext",
     "AgentObservation",
     "AgentState",
     "BaselineScenario",
     "EventObservation",
     "Goal",
+    "RoutineEntry",
     "Landmark",
     "Simulation",
     "SimulationState",
