@@ -65,3 +65,4 @@ class StateDelta:
     plan: tuple[Action, ...] = ()
     goal: Goal | None = None
     activity: ActivityType | None = None
+    travel_destination: Vector2 | None = None
