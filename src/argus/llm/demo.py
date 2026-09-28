@@ -168,7 +168,7 @@ class ScenarioLLMProvider:
                 goal = type(goal)(
                     goal_id=(
                         f"{context.agent_id}-"
-                        f"{context.simulation_tick // 240:04d}-"
+                        f"{context.simulation_tick // 720:04d}-"
                         f"{routine.activity.value}"
                     ),
                     description=routine.description,
