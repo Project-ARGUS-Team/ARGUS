@@ -318,6 +318,25 @@ class SimulationViewer:
                 fill="#fbbf24",
             )
 
+            if event.event_type == "road_closure":
+                for road in self.scenario.roads:
+                    if road.road_id not in event.affected_road_ids:
+                        continue
+                    x1, y1 = self._screen(road.start.x, road.start.y)
+                    x2, y2 = self._screen(road.end.x, road.end.y)
+                    self.canvas.create_line(
+                        x1, y1, x2, y2,
+                        fill="#ef4444",
+                        width=5,
+                    )
+                    self.canvas.create_text(
+                        (x1 + x2) / 2,
+                        (y1 + y2) / 2,
+                        text="X",
+                        fill="#fee2e2",
+                        font=("TkDefaultFont", 12, "bold"),
+                    )
+
         for agent in self.simulation.agents.values():
             if not agent.active:
                 continue
@@ -325,15 +344,26 @@ class SimulationViewer:
             x, y = self._screen(agent.position.x, agent.position.y)
             radius = 5.0
             selected = agent.agent_id == self.selected_agent_id
-            self.canvas.create_oval(
-                x - radius,
-                y - radius,
-                x + radius,
-                y + radius,
-                fill="#60a5fa",
-                outline="#f8fafc" if selected else "",
-                width=2,
-            )
+            if agent.transport_mode.value == "car":
+                self.canvas.create_rectangle(
+                    x - 5,
+                    y - 3,
+                    x + 5,
+                    y + 3,
+                    fill="#f97316",
+                    outline="#f8fafc" if selected else "",
+                    width=2,
+                )
+            else:
+                self.canvas.create_oval(
+                    x - radius,
+                    y - radius,
+                    x + radius,
+                    y + radius,
+                    fill="#60a5fa",
+                    outline="#f8fafc" if selected else "",
+                    width=2,
+                )
 
             action = agent.current_action
             if action is not None and action.action_type == ActionType.INTERACT:
