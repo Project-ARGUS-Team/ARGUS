@@ -224,6 +224,19 @@ class ScenarioLLMProvider:
         if context.profile is None:
             return context.position
         options = context.profile.leisure_options
+        if not options:
+            options = tuple(
+                dict.fromkeys(
+                    entry.target_position
+                    for entry in context.profile.routine
+                    if entry.activity in {
+                        ActivityType.LEISURE,
+                        ActivityType.SOCIAL,
+                        ActivityType.EAT,
+                        ActivityType.SHOP,
+                    }
+                )
+            )
         if not options and context.profile.leisure_position is not None:
             options = (context.profile.leisure_position,)
         if not options:
