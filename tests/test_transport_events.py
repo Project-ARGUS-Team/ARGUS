@@ -146,3 +146,36 @@ def test_vehicle_routing_does_not_take_shortcut() -> None:
     )
 
     assert waypoint == Vector2(0.0, 10.0)
+
+
+def test_route_keeps_current_waypoint_until_reached() -> None:
+    roads = (
+        RoadSegment(
+            "first",
+            "First Road",
+            Vector2(0.0, 0.0),
+            Vector2(20.0, 0.0),
+        ),
+        RoadSegment(
+            "second",
+            "Second Road",
+            Vector2(20.0, 0.0),
+            Vector2(40.0, 0.0),
+        ),
+    )
+    scenario = create_baseline_scenario(agent_count=1, seed=42)
+    agent = scenario.simulation.agents["agent-0001"]
+    agent.transport_mode = TransportMode.CAR
+    agent.position = Vector2(1.0, 0.0)
+    agent.travel_destination = Vector2(40.0, 0.0)
+    agent.current_action = Action(
+        action_type=ActionType.MOVE,
+        target_position=Vector2(20.0, 0.0),
+    )
+
+    provider = ScenarioLLMProvider(roads=roads, arrival_radius=2.0)
+    context = scenario.simulation.build_agent_context(agent.agent_id)
+    delta = provider.request_cognitive_update(context)
+
+    assert delta.action is not None
+    assert delta.action.target_position == Vector2(20.0, 0.0)
