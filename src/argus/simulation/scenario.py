@@ -218,10 +218,19 @@ def create_baseline_scenario(
     agents = list(simulation.agents.values())
     for index, agent in enumerate(agents):
         home_center = home_centers[index % len(home_centers)]
-        home = Vector2(
-            home_center.x + ((index * 7) % 13 - 6) * 0.45,
-            home_center.y + ((index * 11) % 13 - 6) * 0.45,
-        )
+        if index % 5 in (0, 1):
+            # Car users live directly on the residential road network.
+            if index % len(home_centers) == 0:
+                t = ((index * 7) % 13) / 12.0
+                home = Vector2(25.0 + 37.0 * t, 18.0 - 2.0 * t)
+            else:
+                t = ((index * 11) % 13) / 12.0
+                home = Vector2(128.0 + 37.0 * t, 92.0 + 8.0 * t)
+        else:
+            home = Vector2(
+                home_center.x + ((index * 7) % 13 - 6) * 0.45,
+                home_center.y + ((index * 11) % 13 - 6) * 0.45,
+            )
         profile = _build_profile(
             index,
             home,
