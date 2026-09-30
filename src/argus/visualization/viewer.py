@@ -292,46 +292,35 @@ class SimulationViewer:
         )
 
         text = (
-            f"{display_name}
-"
+            f"{display_name}\n"
             f"{occupation}
 
 "
-            f"WORKPLACE
-"
+            f"WORKPLACE\n"
             f"  {work_destination}
 
 "
-            f"POSITION
-"
-            f"  ({agent.position.x:.1f}, {agent.position.y:.1f})
-"
+            f"POSITION\n"
+            f"  ({agent.position.x:.1f}, {agent.position.y:.1f})\n"
             f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})
 
 "
-            f"ACTION
-"
-            f"  {self._action_label(action)}
-"
+            f"ACTION\n"
+            f"  {self._action_label(action)}\n"
             f"  target: {current_destination}
 
 "
-            f"ACTIVITY
-"
+            f"ACTIVITY\n"
             f"  {agent.current_activity.value.upper()}
 
 "
-            f"GOAL
-"
-            f"  {agent.goal.description}
-"
+            f"GOAL\n"
+            f"  {agent.goal.description}\n"
             f"  importance: {agent.goal.importance:.2f}
 
 "
-            f"SOCIAL
-"
-            f"  connections: {len(agent.social_connections)}
-"
+            f"SOCIAL\n"
+            f"  connections: {len(agent.social_connections)}\n"
             f"  nearby: {nearby_count}"
         )
         self.agent_info.config(text=text)
@@ -347,7 +336,7 @@ class SimulationViewer:
         """Replace the wrapped thought history without allowing edits."""
         self.thoughts_box.config(state=tk.NORMAL)
         self.thoughts_box.delete("1.0", tk.END)
-        self.thoughts_box.insert("1.0", "\\n".join(f"• {line}" for line in lines))
+        self.thoughts_box.insert("1.0", "\n".join(f"• {line}" for line in lines))
         self.thoughts_box.config(state=tk.DISABLED)
 
     def _time_of_day(self) -> str:
@@ -488,14 +477,10 @@ class SimulationViewer:
 
         self.status.config(
             text=(
-                f"Tick {current_tick}
-"
-                f"Time of day {self._time_of_day()}
-"
-                f"Simulation {self.simulation.simulation_time:.0f}s
-"
-                f"Agents {len(self.simulation.agents)}
-"
+                f"Tick {current_tick}\n"
+                f"Time of day {self._time_of_day()}\n"
+                f"Simulation {self.simulation.simulation_time:.0f}s\n"
+                f"Agents {len(self.simulation.agents)}\n"
                 f"Cognitive updates {self.scheduler.total_cognitive_updates}"
             )
         )
