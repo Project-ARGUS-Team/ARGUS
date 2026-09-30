@@ -7,6 +7,7 @@ from argus.simulation.agent import (
     ActivityType,
     AgentProfile,
     Goal,
+    MemoryRecord,
     RoutineEntry,
     Vector2,
 )
@@ -53,6 +54,8 @@ class AgentContext:
     travel_destination: Vector2 | None = None
     closed_road_ids: tuple[str, ...] = ()
     traffic_factor: float = 1.0
+    memories: tuple[MemoryRecord, ...] = ()
+    relationship_strengths: tuple[tuple[str, float], ...] = ()
     nearby_agents: tuple[AgentObservation, ...] = ()
     active_events: tuple[EventObservation, ...] = ()
     social_connections: tuple[str, ...] = ()
