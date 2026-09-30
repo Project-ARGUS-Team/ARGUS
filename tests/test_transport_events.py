@@ -200,13 +200,13 @@ def test_committed_route_advances_monotonically_from_plaza() -> None:
     provider = ScenarioLLMProvider(roads=scenario.roads, arrival_radius=4.0)
 
     first = provider._road_waypoint(
-        Vector2(98.0, 55.0),
+        Vector2(105.0, 34.0),
         Vector2(30.0, 58.0),
         "agent-0001",
         vehicle=True,
     )
     second = provider._road_waypoint(
-        first,
+        Vector2(88.0, 55.0),
         Vector2(30.0, 58.0),
         "agent-0001",
         vehicle=True,
