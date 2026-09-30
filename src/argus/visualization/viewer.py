@@ -177,25 +177,7 @@ class SimulationViewer:
         world_x = event.x / self.scale
         world_y = event.y / self.scale
         nearest_id = None
-        nearest_distance = float("inf")
-
-        for agent in self.simulation.agents.values():
-            dx = agent.position.x - world_x
-            dy = agent.position.y - world_y
-            distance = (dx * dx + dy * dy) ** 0.5
-            if distance < nearest_distance:
-                nearest_id = agent.agent_id
-                nearest_distance = distance
-
-        if nearest_id is not None and nearest_distance <= 7.0:
-            self.selected_agent_id = nearest_id
-        else:
-            self.selected_agent_id = None
-        self._draw()
-
-    def _landmark_name(self, position) -> str:
-        if position is None:
-            return "None"
+        nearest_distance = float("inf")\n\n        for agent in self.simulation.agents.values():\n            dx = agent.position.x - world_x\n            dy = agent.position.y - world_y\n            distance = (dx * dx + dy * dy) ** 0.5\n            if distance < nearest_distance:\n                nearest_id = agent.agent_id\n                nearest_distance = distance\n\n        if nearest_id is not None and nearest_distance <= 7.0:\n            self.selected_agent_id = nearest_id\n        else:\n            self.selected_agent_id = None\n        self._draw()\n\n    def _landmark_name(self, position) -> str:\n        if position is None:\n            return "None"
         nearest = min(
             self.scenario.landmarks,
             key=lambda landmark: (
@@ -293,32 +275,20 @@ class SimulationViewer:
 
         text = (
             f"{display_name}\n"
-            f"{occupation}
-
-"
+            f"{occupation}\n\n"
             f"WORKPLACE\n"
-            f"  {work_destination}
-
-"
+            f"  {work_destination}\n\n"
             f"POSITION\n"
             f"  ({agent.position.x:.1f}, {agent.position.y:.1f})\n"
-            f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})
-
-"
+            f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})\n\n"
             f"ACTION\n"
             f"  {self._action_label(action)}\n"
-            f"  target: {current_destination}
-
-"
+            f"  target: {current_destination}\n\n"
             f"ACTIVITY\n"
-            f"  {agent.current_activity.value.upper()}
-
-"
+            f"  {agent.current_activity.value.upper()}\n\n"
             f"GOAL\n"
             f"  {agent.goal.description}\n"
-            f"  importance: {agent.goal.importance:.2f}
-
-"
+            f"  importance: {agent.goal.importance:.2f}\n\n"
             f"SOCIAL\n"
             f"  connections: {len(agent.social_connections)}\n"
             f"  nearby: {nearby_count}"
