@@ -76,6 +76,7 @@ class AgentProfile:
     home_position: Vector2
     work_position: Vector2 | None = None
     leisure_position: Vector2 | None = None
+    leisure_options: tuple[Vector2, ...] = ()
     social_preference: float = 0.5
     transport_mode: TransportMode = TransportMode.WALK
     routine: tuple[RoutineEntry, ...] = ()
