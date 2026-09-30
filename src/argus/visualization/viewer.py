@@ -177,7 +177,25 @@ class SimulationViewer:
         world_x = event.x / self.scale
         world_y = event.y / self.scale
         nearest_id = None
-        nearest_distance = float("inf")\n\n        for agent in self.simulation.agents.values():\n            dx = agent.position.x - world_x\n            dy = agent.position.y - world_y\n            distance = (dx * dx + dy * dy) ** 0.5\n            if distance < nearest_distance:\n                nearest_id = agent.agent_id\n                nearest_distance = distance\n\n        if nearest_id is not None and nearest_distance <= 7.0:\n            self.selected_agent_id = nearest_id\n        else:\n            self.selected_agent_id = None\n        self._draw()\n\n    def _landmark_name(self, position) -> str:\n        if position is None:\n            return "None"
+        nearest_distance = float("inf")
+
+        for agent in self.simulation.agents.values():
+            dx = agent.position.x - world_x
+            dy = agent.position.y - world_y
+            distance = (dx * dx + dy * dy) ** 0.5
+            if distance < nearest_distance:
+                nearest_id = agent.agent_id
+                nearest_distance = distance
+
+        if nearest_id is not None and nearest_distance <= 7.0:
+            self.selected_agent_id = nearest_id
+        else:
+            self.selected_agent_id = None
+        self._draw()
+
+    def _landmark_name(self, position) -> str:
+        if position is None:
+            return "None"
         nearest = min(
             self.scenario.landmarks,
             key=lambda landmark: (
@@ -307,6 +325,7 @@ class SimulationViewer:
         self.thoughts_box.config(state=tk.NORMAL)
         self.thoughts_box.delete("1.0", tk.END)
         self.thoughts_box.insert("1.0", "\n".join(f"• {line}" for line in lines))
+".join(f"• {line}" for line in lines))
         self.thoughts_box.config(state=tk.DISABLED)
 
     def _time_of_day(self) -> str:
@@ -454,6 +473,7 @@ class SimulationViewer:
                 f"Cognitive updates {self.scheduler.total_cognitive_updates}"
             )
         )
+
 
     def step(self) -> None:
         """Run one full-frequency cognitive baseline tick and redraw."""
