@@ -13,6 +13,7 @@ from argus.simulation.agent import (
     Goal,
     MemoryRecord,
     Vector2,
+    ConversationRecord,
 )
 from argus.simulation.context import (
     AgentContext,
@@ -248,14 +249,14 @@ class Simulation:
         self,
         agent_id: str,
         target_agent_id: str,
-    ) -> bool:
+    ) -> ConversationRecord | None:
         """Create one randomized conversation and store it in both memories."""
         if agent_id == target_agent_id:
-            return False
+            return None
 
         pair = tuple(sorted((agent_id, target_agent_id)))
         if self._interaction_ticks.get(pair) == self.current_tick:
-            return False
+            return None
 
         agent = self.state.agents[agent_id]
         target = self.state.agents[target_agent_id]
@@ -287,7 +288,7 @@ class Simulation:
             importance=0.80,
             related_agent_ids=(agent_id,),
         )
-        return True
+        return conversation
 
     def end_of_day_reflection(self) -> None:
         """Create a compact daily reflection from important experiences."""
