@@ -63,7 +63,23 @@ class SimulationViewer:
             justify=tk.LEFT,
             anchor=tk.NW,
         )
-        self.agent_info.pack(fill=tk.X, pady=(10, 16))
+        self.agent_info.pack(fill=tk.X, pady=(10, 12))
+
+        tk.Label(
+            inspector,
+            text="RECENT THOUGHTS",
+            font=("TkDefaultFont", 10, "bold"),
+        ).pack(anchor=tk.W)
+
+        self.thoughts_box = tk.Listbox(
+            inspector,
+            height=9,
+            activestyle="none",
+            exportselection=False,
+            relief=tk.FLAT,
+            borderwidth=0,
+        )
+        self.thoughts_box.pack(fill=tk.X, pady=(6, 16))
 
         tk.Label(
             inspector,
@@ -274,6 +290,18 @@ class SimulationViewer:
             f"  nearby: {nearby_count}"
         )
         self.agent_info.config(text=text)
+
+        self.thoughts_box.delete(0, tk.END)
+        if agent.thoughts:
+            for thought in reversed(agent.thoughts[-9:]):
+                minutes = (6 * 60 + (thought.tick % 720) * 2) % (24 * 60)
+                timestamp = f"{minutes // 60:02d}:{minutes % 60:02d}"
+                self.thoughts_box.insert(
+                    tk.END,
+                    f"{timestamp}  {thought.summary}",
+                )
+        else:
+            self.thoughts_box.insert(tk.END, "No decisions recorded yet.")
 
     def _time_of_day(self) -> str:
         """Convert the 720-tick simulation day into a readable clock."""
