@@ -8,7 +8,7 @@ import tkinter as tk
 from argus.llm.demo import ScenarioLLMProvider
 from argus.scheduling.baseline import BaselineScheduler
 from argus.simulation.agent import ActionType
-from argus.simulation.scenario import BaselineScenario, create_baseline_scenario
+from argus.simulation.scenario import BaselineScenario, create_baseline_scenario, create_interaction_scenario
 
 
 class SimulationViewer:
@@ -411,33 +411,6 @@ class SimulationViewer:
 
         self._draw_agent_inspector()
 
-        active_events = [
-            event.event_type
-            for event in self.simulation.state.events.values()
-            if event.is_active(current_tick)
-        ]
-        upcoming_events = sorted(
-            (
-                event
-                for event in self.simulation.state.events.values()
-                if event.start_tick > current_tick
-            ),
-            key=lambda event: event.start_tick,
-        )[:4]
-
-        active_text = (
-            ", ".join(active_events)
-            if active_events
-            else "None"
-        )
-        upcoming_text = (
-            "\n".join(
-                f"  {event.event_type} @ tick {event.start_tick}"
-                for event in upcoming_events
-            )
-            if upcoming_events
-            else "  None"
-        )
 
         self.status.config(
             text=(
@@ -477,10 +450,7 @@ class SimulationViewer:
         self.paused = True
         self.selected_agent_id = None
         self._install_scenario(
-            create_baseline_scenario(
-                agent_count=len(self.simulation.agents),
-                seed=42,
-            )
+            create_interaction_scenario()
         )
         self._draw()
 
