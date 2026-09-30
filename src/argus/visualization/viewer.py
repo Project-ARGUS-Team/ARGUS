@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 
 from argus.llm.demo import ScenarioLLMProvider
@@ -16,7 +17,7 @@ class SimulationViewer:
     def __init__(
         self,
         scenario: BaselineScenario,
-        pixels_per_unit: float = 5.0,
+        pixels_per_unit: float = 6.0,
     ) -> None:
         self.scale = pixels_per_unit
         self.paused = True
@@ -191,6 +192,44 @@ class SimulationViewer:
             return "None"
         return action.action_type.value.upper()
 
+    def _agent_draw_positions(self) -> dict[str, tuple[float, float]]:
+        """Return visually separated positions without changing simulation state."""
+        agents = [agent for agent in self.simulation.agents.values() if agent.active]
+        positions: dict[str, tuple[float, float]] = {}
+        groups: dict[tuple[int, int], list] = {}
+        cell_size = 10.0
+
+        for agent in agents:
+            sx, sy = self._screen(agent.position.x, agent.position.y)
+            key = (int(sx // cell_size), int(sy // cell_size))
+            groups.setdefault(key, []).append(agent)
+
+        for group in groups.values():
+            group.sort(key=lambda agent: agent.agent_id)
+            if len(group) == 1:
+                agent = group[0]
+                positions[agent.agent_id] = self._screen(
+                    agent.position.x, agent.position.y
+                )
+                continue
+
+            screen_positions = [
+                self._screen(agent.position.x, agent.position.y)
+                for agent in group
+            ]
+            center_x = sum(point[0] for point in screen_positions) / len(group)
+            center_y = sum(point[1] for point in screen_positions) / len(group)
+            radius = min(18.0, 7.0 + len(group) * 1.5)
+
+            for index, agent in enumerate(group):
+                angle = (2.0 * math.pi * index / len(group)) - math.pi / 2.0
+                positions[agent.agent_id] = (
+                    center_x + math.cos(angle) * radius,
+                    center_y + math.sin(angle) * radius,
+                )
+
+        return positions
+
     def _draw_agent_inspector(self) -> None:
         if self.selected_agent_id is None:
             self.agent_info.config(text="Click an agent to inspect it.")
@@ -278,12 +317,12 @@ class SimulationViewer:
             self.canvas.create_line(
                 x1, y1, x2, y2,
                 fill="#374151",
-                width=9,
+                width=12,
             )
             self.canvas.create_line(
                 x1, y1, x2, y2,
                 fill="#6b7280",
-                width=3,
+                width=4,
             )
 
         for landmark in self.scenario.landmarks:
@@ -350,12 +389,14 @@ class SimulationViewer:
                         font=("TkDefaultFont", 12, "bold"),
                     )
 
+        agent_draw_positions = self._agent_draw_positions()
+
         for agent in self.simulation.agents.values():
             if not agent.active:
                 continue
 
-            x, y = self._screen(agent.position.x, agent.position.y)
-            radius = 5.0
+            x, y = agent_draw_positions[agent.agent_id]
+            radius = 6.0
             selected = agent.agent_id == self.selected_agent_id
             if agent.transport_mode.value == "car":
                 self.canvas.create_rectangle(
@@ -365,7 +406,7 @@ class SimulationViewer:
                     y + 3,
                     fill="#f97316",
                     outline="#f8fafc" if selected else "",
-                    width=2,
+                    width=4 if selected else 1,
                 )
             else:
                 self.canvas.create_oval(
@@ -375,16 +416,16 @@ class SimulationViewer:
                     y + radius,
                     fill="#60a5fa",
                     outline="#f8fafc" if selected else "",
-                    width=2,
+                    width=4 if selected else 1,
                 )
 
             action = agent.current_action
             if action is not None and action.action_type == ActionType.INTERACT:
                 if action.target_agent_id in self.simulation.agents:
                     target = self.simulation.agents[action.target_agent_id]
-                    tx, ty = self._screen(
-                        target.position.x,
-                        target.position.y,
+                    tx, ty = agent_draw_positions.get(
+                        target.agent_id,
+                        self._screen(target.position.x, target.position.y),
                     )
                     self.canvas.create_line(
                         x,
