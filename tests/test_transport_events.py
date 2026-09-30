@@ -32,6 +32,7 @@ def test_closed_road_changes_car_route() -> None:
             "Direct Road",
             Vector2(0.0, 0.0),
             Vector2(10.0, 0.0),
+            vehicle_allowed=False,
         ),
         RoadSegment(
             "detour",
