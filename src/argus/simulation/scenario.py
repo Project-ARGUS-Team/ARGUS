@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import random
 
 from argus.simulation.agent import (
@@ -84,6 +84,7 @@ def _build_profile(
     cafe: Vector2,
     entertainment: Vector2,
     station: Vector2,
+    transport_mode: TransportMode,
 ) -> AgentProfile:
     kind, occupation = OCCUPATION_TYPES[index % len(OCCUPATION_TYPES)]
     leisure = (park, cafe, entertainment)[index % 3]
@@ -149,11 +150,6 @@ def _build_profile(
         )
         work = office
 
-    transport_mode = (
-        TransportMode.CAR
-        if index % 5 in (0, 1)
-        else TransportMode.WALK
-    )
     return AgentProfile(
         name=NAMES[index % len(NAMES)],
         occupation=occupation,
@@ -164,6 +160,28 @@ def _build_profile(
         transport_mode=transport_mode,
         routine=routine,
     )
+
+
+def _vary_routine(
+    routine: tuple[RoutineEntry, ...],
+    rng: random.Random,
+) -> tuple[RoutineEntry, ...]:
+    """Add small deterministic timing variation to a daily routine.
+
+    One simulation tick is two minutes, so offsets of 5, 8, or 15 ticks are
+    roughly 10, 16, or 30 minutes. The first HOME block stays anchored while
+    the rest of the day moves together, keeping the routine internally valid.
+    """
+    if len(routine) <= 1:
+        return routine
+
+    offset = rng.choice((-15, -8, -5, 0, 5, 8, 15))
+    varied = [routine[0]]
+    for entry in routine[1:]:
+        start = max(0, min(720, entry.start_tick + offset))
+        end = max(start + 1, min(720, entry.end_tick + offset))
+        varied.append(replace(entry, start_tick=start, end_tick=end))
+    return tuple(varied)
 
 
 def create_baseline_scenario(
@@ -190,7 +208,6 @@ def create_baseline_scenario(
     roads = (
         RoadSegment("road-north-west", "North Avenue", Vector2(25, 18), Vector2(62, 16)),
         RoadSegment("road-north-east", "Hospital Avenue", Vector2(62, 16), Vector2(145, 18)),
-        RoadSegment("road-central-west", "Market Road", Vector2(25, 58), Vector2(88, 55)),
         RoadSegment("road-central-east", "Station Road", Vector2(88, 55), Vector2(145, 55)),
         RoadSegment("road-south-west", "Park Road", Vector2(45, 94), Vector2(82, 88)),
         RoadSegment("road-south-east", "Entertainment Road", Vector2(82, 88), Vector2(128, 92)),
@@ -216,9 +233,17 @@ def create_baseline_scenario(
     )
 
     agents = list(simulation.agents.values())
+    routine_rng = random.Random(seed + 20_000)
     for index, agent in enumerate(agents):
+        # Transport is independent of occupation. The old index%5 rule
+        # accidentally gave the same modes to the same occupation groups.
+        transport_mode = (
+            TransportMode.CAR
+            if ((index * 5 + seed) % 10) < 4
+            else TransportMode.WALK
+        )
         home_center = home_centers[index % len(home_centers)]
-        if index % 5 in (0, 1):
+        if transport_mode == TransportMode.CAR:
             # Car users live directly on the residential road network.
             if index % len(home_centers) == 0:
                 t = ((index * 7) % 13) / 12.0
@@ -242,6 +267,11 @@ def create_baseline_scenario(
             landmark_map["cafe"].position,
             landmark_map["entertainment"].position,
             landmark_map["station"].position,
+            transport_mode,
+        )
+        profile = replace(
+            profile,
+            routine=_vary_routine(profile.routine, routine_rng),
         )
         agent.profile = profile
         agent.transport_mode = profile.transport_mode
