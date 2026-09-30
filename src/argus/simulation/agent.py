@@ -1,6 +1,10 @@
 """Core agent state and action models for the ARGUS simulation."""
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 from enum import StrEnum
 
 
@@ -99,6 +103,19 @@ class Action:
     duration: float = 0.0
 
 
+@dataclass(frozen=True, slots=True)
+class MemoryRecord:
+    """A compact episodic memory retained by an agent."""
+
+    memory_id: str
+    day: int
+    tick: int
+    kind: str
+    summary: str
+    importance: float = 0.5
+    related_agent_ids: tuple[str, ...] = ()
+
+
 @dataclass(slots=True)
 class AgentState:
     """Authoritative state maintained for one simulation agent."""
@@ -111,6 +128,8 @@ class AgentState:
     current_activity: ActivityType = ActivityType.HOME
     transport_mode: TransportMode = TransportMode.WALK
     travel_destination: Vector2 | None = None
+    memories: list[MemoryRecord] = field(default_factory=list)
+    relationships: dict[str, float] = field(default_factory=dict)
     current_action: Action | None = None
     plan: list[Action] = field(default_factory=list)
     social_connections: set[str] = field(default_factory=set)
