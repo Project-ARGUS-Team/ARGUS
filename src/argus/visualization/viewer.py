@@ -206,11 +206,21 @@ class SimulationViewer:
 
         for group in groups.values():
             group.sort(key=lambda agent: agent.agent_id)
-            if len(group) == 1:
-                agent = group[0]
-                positions[agent.agent_id] = self._screen(
-                    agent.position.x, agent.position.y
-                )
+
+            # Separation is only a stationary visualization aid. Once a group
+            # starts moving, render the real simulation positions so the agents
+            # do not carry an artificial circular formation into their trip.
+            moving_group = any(
+                agent.current_action is not None
+                and agent.current_action.action_type == ActionType.MOVE
+                for agent in group
+            )
+
+            if len(group) == 1 or moving_group:
+                for agent in group:
+                    positions[agent.agent_id] = self._screen(
+                        agent.position.x, agent.position.y
+                    )
                 continue
 
             screen_positions = [
