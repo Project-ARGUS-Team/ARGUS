@@ -347,8 +347,7 @@ class SimulationViewer:
         """Replace the wrapped thought history without allowing edits."""
         self.thoughts_box.config(state=tk.NORMAL)
         self.thoughts_box.delete("1.0", tk.END)
-        self.thoughts_box.insert("1.0", "
-".join(f"• {line}" for line in lines))
+        self.thoughts_box.insert("1.0", "\\n".join(f"• {line}" for line in lines))
         self.thoughts_box.config(state=tk.DISABLED)
 
     def _time_of_day(self) -> str:
