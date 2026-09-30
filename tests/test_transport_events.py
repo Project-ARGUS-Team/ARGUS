@@ -179,3 +179,17 @@ def test_route_keeps_current_waypoint_until_reached() -> None:
 
     assert delta.action is not None
     assert delta.action.target_position == Vector2(20.0, 0.0)
+
+
+def test_central_plaza_to_market_uses_market_road() -> None:
+    scenario = create_baseline_scenario(agent_count=1, seed=42)
+    provider = ScenarioLLMProvider(roads=scenario.roads)
+
+    waypoint = provider._road_waypoint(
+        Vector2(88.0, 55.0),
+        Vector2(30.0, 58.0),
+        "agent-0001",
+        vehicle=True,
+    )
+
+    assert waypoint == Vector2(25.0, 58.0)
