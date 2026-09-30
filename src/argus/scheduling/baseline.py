@@ -132,12 +132,6 @@ class BaselineScheduler:
                     )
 
             if (
-                previous_activity != agent.current_activity
-                and previous_activity == ActionType.INTERACT
-            ):
-                pass
-
-            if (
                 current_action is not None
                 and current_action.action_type == ActionType.WAIT
                 and agent.current_activity != ActivityType.HOME
