@@ -113,3 +113,36 @@ def test_car_speed_is_reduced_by_local_congestion() -> None:
     )
 
     assert first.velocity.x < 6.0
+
+
+def test_vehicle_routing_does_not_take_shortcut() -> None:
+    roads = (
+        RoadSegment(
+            "direct",
+            "Direct Road",
+            Vector2(0.0, 0.0),
+            Vector2(10.0, 0.0),
+        ),
+        RoadSegment(
+            "detour",
+            "Detour Road",
+            Vector2(0.0, 0.0),
+            Vector2(0.0, 10.0),
+        ),
+        RoadSegment(
+            "detour-east",
+            "Detour East",
+            Vector2(0.0, 10.0),
+            Vector2(10.0, 0.0),
+        ),
+    )
+    provider = ScenarioLLMProvider(roads=roads)
+
+    waypoint = provider._road_waypoint(
+        Vector2(0.0, 0.0),
+        Vector2(10.0, 0.0),
+        "agent-0001",
+        vehicle=True,
+    )
+
+    assert waypoint == Vector2(0.0, 10.0)
