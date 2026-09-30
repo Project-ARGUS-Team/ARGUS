@@ -193,3 +193,58 @@ def test_central_plaza_to_market_uses_market_road() -> None:
     )
 
     assert waypoint == Vector2(25.0, 58.0)
+
+
+def test_committed_route_advances_monotonically_from_plaza() -> None:
+    scenario = create_baseline_scenario(agent_count=1, seed=42)
+    provider = ScenarioLLMProvider(roads=scenario.roads, arrival_radius=4.0)
+
+    first = provider._road_waypoint(
+        Vector2(98.0, 55.0),
+        Vector2(30.0, 58.0),
+        "agent-0001",
+        vehicle=True,
+    )
+    second = provider._road_waypoint(
+        first,
+        Vector2(30.0, 58.0),
+        "agent-0001",
+        vehicle=True,
+    )
+
+    assert first == Vector2(88.0, 55.0)
+    assert second == Vector2(25.0, 58.0)
+
+
+def test_vehicle_route_respects_vehicle_access() -> None:
+    roads = (
+        RoadSegment(
+            "pedestrian-only",
+            "Pedestrian Cut",
+            Vector2(0.0, 0.0),
+            Vector2(10.0, 0.0),
+            vehicle_allowed=False,
+        ),
+        RoadSegment(
+            "vehicle-route",
+            "Vehicle Route",
+            Vector2(0.0, 0.0),
+            Vector2(0.0, 10.0),
+        ),
+        RoadSegment(
+            "vehicle-route-east",
+            "Vehicle Route East",
+            Vector2(0.0, 10.0),
+            Vector2(10.0, 0.0),
+        ),
+    )
+    provider = ScenarioLLMProvider(roads=roads)
+
+    waypoint = provider._road_waypoint(
+        Vector2(0.0, 0.0),
+        Vector2(10.0, 0.0),
+        "agent-0001",
+        vehicle=True,
+    )
+
+    assert waypoint == Vector2(0.0, 10.0)
