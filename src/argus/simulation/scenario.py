@@ -237,6 +237,10 @@ def create_baseline_scenario(
         agent.position = home
         first_routine = profile.routine[0]
         agent.current_activity = first_routine.activity
+        agent.asleep = True
+        agent.relationships = {
+            agents[(index + 1) % len(agents)].agent_id: 0.50
+        } if len(agents) > 1 else {}
         agent.goal = Goal(
             goal_id=f"goal-{index + 1:04d}",
             description=first_routine.description,
