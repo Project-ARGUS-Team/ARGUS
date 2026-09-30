@@ -421,12 +421,7 @@ class SimulationViewer:
                 f"Cognitive updates {self.scheduler.total_cognitive_updates}"
             )
         )
-        self.event_info.config(
-            text=(
-                f"Active\n  {active_text}\n\n"
-                f"Upcoming\n{upcoming_text}"
-            )
-        )
+
 
     def step(self) -> None:
         """Run one full-frequency cognitive baseline tick and redraw."""
