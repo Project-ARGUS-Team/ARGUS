@@ -240,6 +240,8 @@ class ScenarioLLMProvider:
                     current_target is not None
                     and self._distance(context.position, current_target)
                     > self.arrival_radius
+                    and self._distance(current_target, trip_destination)
+                    < self._distance(context.position, trip_destination)
                 ):
                     target = current_target
                 else:
@@ -318,7 +320,9 @@ class ScenarioLLMProvider:
             if (
                 current_target is not None
                 and self._distance(context.position, current_target)
-                > self.arrival_radius
+                    > self.arrival_radius
+                and self._distance(current_target, routine.target_position)
+                    < self._distance(context.position, routine.target_position)
             ):
                 target = current_target
             else:
