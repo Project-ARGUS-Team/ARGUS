@@ -91,26 +91,26 @@ def _build_profile(
 
     if kind == "student":
         routine = _routine(
-            (ActivityType.HOME, "Morning at home", home, 0, 60, 0.45),
-            (ActivityType.COMMUTE, "Travel to school", school, 60, 135, 0.7),
-            (ActivityType.STUDY, "Attend school", school, 135, 375, 0.9),
-            (ActivityType.EAT, "Lunch break", cafe, 375, 435, 0.6),
-            (ActivityType.STUDY, "Afternoon classes", school, 435, 525, 0.85),
-            (ActivityType.COMMUTE, "Travel home", home, 525, 585, 0.65),
-            (ActivityType.SOCIAL, "Meet friends", leisure, 585, 660, 0.65),
-            (ActivityType.HOME, "Evening at home", home, 660, 720, 0.4),
+            (ActivityType.HOME, "Morning at home", home, 0, 45, 0.45),
+            (ActivityType.COMMUTE, "Travel to school", school, 45, 75, 0.7),
+            (ActivityType.STUDY, "Morning classes", school, 75, 195, 0.9),
+            (ActivityType.EAT, "Lunch break", cafe, 195, 225, 0.6),
+            (ActivityType.STUDY, "Afternoon classes", school, 225, 315, 0.85),
+            (ActivityType.COMMUTE, "Travel home", home, 315, 345, 0.65),
+            (ActivityType.SOCIAL, "Meet friends", leisure, 345, 435, 0.65),
+            (ActivityType.HOME, "Evening at home", home, 435, 720, 0.4),
         )
         work = school
     elif kind == "healthcare":
         routine = _routine(
-            (ActivityType.HOME, "Morning at home", home, 0, 54, 0.4),
-            (ActivityType.COMMUTE, "Travel to hospital", hospital, 54, 129, 0.75),
-            (ActivityType.WORK, "Hospital shift", hospital, 129, 375, 1.0),
-            (ActivityType.EAT, "Lunch break", market, 375, 435, 0.55),
-            (ActivityType.WORK, "Hospital shift", hospital, 435, 525, 1.0),
-            (ActivityType.COMMUTE, "Travel home", home, 525, 585, 0.65),
-            (ActivityType.LEISURE, "Evening leisure", leisure, 585, 660, 0.5),
-            (ActivityType.HOME, "Evening at home", home, 660, 720, 0.4),
+            (ActivityType.HOME, "Morning at home", home, 0, 45, 0.4),
+            (ActivityType.COMMUTE, "Travel to hospital", hospital, 45, 75, 0.75),
+            (ActivityType.WORK, "Morning hospital shift", hospital, 75, 195, 1.0),
+            (ActivityType.EAT, "Lunch break", market, 195, 225, 0.55),
+            (ActivityType.WORK, "Afternoon hospital shift", hospital, 225, 315, 1.0),
+            (ActivityType.COMMUTE, "Travel home", home, 315, 345, 0.65),
+            (ActivityType.LEISURE, "Evening leisure", leisure, 345, 435, 0.5),
+            (ActivityType.HOME, "Evening at home", home, 435, 720, 0.4)
         )
         work = hospital
     elif kind == "retail":
@@ -138,14 +138,14 @@ def _build_profile(
         work = None
     else:
         routine = _routine(
-            (ActivityType.HOME, "Morning at home", home, 0, 165, 0.4),
-            (ActivityType.COMMUTE, "Commute to work", office, 165, 216, 0.7),
-            (ActivityType.WORK, "Workday", office, 216, 435, 0.9),
-            (ActivityType.EAT, "Lunch break", cafe, 435, 495, 0.55),
-            (ActivityType.WORK, "Afternoon work", office, 495, 570, 0.9),
-            (ActivityType.COMMUTE, "Commute home", home, 570, 624, 0.65),
-            (ActivityType.LEISURE, "Evening outing", leisure, 624, 690, 0.55),
-            (ActivityType.HOME, "Evening at home", home, 690, 720, 0.4),
+            (ActivityType.HOME, "Morning at home", home, 0, 45, 0.4),
+            (ActivityType.COMMUTE, "Commute to work", office, 45, 75, 0.7),
+            (ActivityType.WORK, "Morning work", office, 75, 195, 0.9),
+            (ActivityType.EAT, "Lunch break", cafe, 195, 225, 0.55),
+            (ActivityType.WORK, "Afternoon work", office, 225, 315, 0.9),
+            (ActivityType.COMMUTE, "Commute home", home, 315, 345, 0.65),
+            (ActivityType.LEISURE, "Evening outing", leisure, 345, 435, 0.55),
+            (ActivityType.HOME, "Evening at home", home, 435, 720, 0.4),
         )
         work = office
 
