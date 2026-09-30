@@ -228,15 +228,32 @@ class SimulationViewer:
         display_name = agent.profile.name if agent.profile else agent.agent_id
         occupation = agent.profile.occupation if agent.profile else "No occupation"
 
+        work_destination = (
+            self._landmark_name(agent.profile.work_position)
+            if agent.profile is not None and agent.profile.work_position is not None
+            else "None"
+        )
+        current_destination = self._landmark_name(
+            agent.travel_destination
+            if agent.travel_destination is not None
+            else (
+                agent.current_action.target_position
+                if agent.current_action is not None
+                else None
+            )
+        )
+
         text = (
             f"{display_name}\n"
             f"{occupation}\n\n"
+            f"WORKPLACE\n"
+            f"  {work_destination}\n\n"
             f"POSITION\n"
             f"  ({agent.position.x:.1f}, {agent.position.y:.1f})\n"
             f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})\n\n"
             f"ACTION\n"
             f"  {self._action_label(action)}\n"
-            f"  target: {self._landmark_name(target)}\n\n"
+            f"  target: {current_destination}\n\n"
             f"ACTIVITY\n"
             f"  {agent.current_activity.value.upper()}\n\n"
             f"GOAL\n"
