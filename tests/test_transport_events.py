@@ -249,3 +249,25 @@ def test_vehicle_route_respects_vehicle_access() -> None:
     )
 
     assert waypoint == Vector2(0.0, 10.0)
+
+
+def test_route_does_not_keep_wrong_previous_waypoint_at_junction() -> None:
+    scenario = create_baseline_scenario(agent_count=1, seed=42)
+    provider = ScenarioLLMProvider(roads=scenario.roads, arrival_radius=4.0)
+
+    # Simulate an agent reaching Central Plaza while its previous action still
+    # points toward Central Station. The destination is Market. The route
+    # controller must choose Market Road rather than preserve the old branch.
+    agent = scenario.simulation.agents["agent-0001"]
+    agent.position = Vector2(88.0, 55.0)
+    agent.travel_destination = Vector2(30.0, 58.0)
+    agent.current_action = Action(
+        action_type=ActionType.MOVE,
+        target_position=Vector2(145.0, 55.0),
+    )
+
+    context = scenario.simulation.build_agent_context(agent.agent_id)
+    delta = provider.request_cognitive_update(context)
+
+    assert delta.action is not None
+    assert delta.action.target_position == Vector2(25.0, 58.0)
