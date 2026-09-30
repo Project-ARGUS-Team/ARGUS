@@ -274,6 +274,7 @@ class Simulation:
             agent.goal = delta.goal
         if delta.activity is not None:
             agent.current_activity = delta.activity
+            agent.asleep = delta.activity == ActivityType.HOME and self._is_sleeping_hour()
         if delta.travel_destination is not None:
             agent.travel_destination = delta.travel_destination
 
