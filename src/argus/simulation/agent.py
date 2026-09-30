@@ -1,10 +1,6 @@
 """Core agent state and action models for the ARGUS simulation."""
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from datetime import datetime
 from enum import StrEnum
 
 
@@ -116,6 +112,23 @@ class MemoryRecord:
     related_agent_ids: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class ThoughtRecord:
+    """A concise human-readable explanation of a recent agent decision."""
+
+    tick: int
+    summary: str
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationRecord:
+    """One short conversation exchange between two agents."""
+
+    topic: str
+    opening: str
+    follow_up: str
+
+
 @dataclass(slots=True)
 class AgentState:
     """Authoritative state maintained for one simulation agent."""
@@ -129,6 +142,7 @@ class AgentState:
     transport_mode: TransportMode = TransportMode.WALK
     travel_destination: Vector2 | None = None
     memories: list[MemoryRecord] = field(default_factory=list)
+    thoughts: list[ThoughtRecord] = field(default_factory=list)
     relationships: dict[str, float] = field(default_factory=dict)
     current_action: Action | None = None
     plan: list[Action] = field(default_factory=list)
@@ -142,3 +156,9 @@ class AgentState:
     def clear_action(self) -> None:
         self.current_action = None
         self.velocity = Vector2(0.0, 0.0)
+
+    def add_thought(self, tick: int, summary: str, limit: int = 20) -> None:
+        """Keep a concise rolling history for the inspector."""
+        self.thoughts.append(ThoughtRecord(tick=tick, summary=summary))
+        if len(self.thoughts) > limit:
+            del self.thoughts[:-limit]
