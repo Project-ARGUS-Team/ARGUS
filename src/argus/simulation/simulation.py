@@ -314,6 +314,18 @@ class Simulation:
         hour = (6 * 60 + (self.current_tick % 720) * 2) % (24 * 60) // 60
         return hour < 6 or hour >= 23
 
+    def _apply_movement_arrival(self, agent: AgentState) -> None:
+        """Stop an agent cleanly when it reaches its physical destination."""
+        destination = agent.travel_destination
+        if destination is None or agent.current_action is None:
+            return
+        dx = destination.x - agent.position.x
+        dy = destination.y - agent.position.y
+        if dx * dx + dy * dy <= 4.0 * 4.0:
+            agent.position = destination
+            agent.velocity = Vector2(0.0, 0.0)
+            agent.travel_destination = None
+
     def _traffic_factor(self, agent_id: str) -> float:
         """Estimate local traffic pressure for a moving agent."""
         agent = self.state.agents[agent_id]
@@ -368,6 +380,7 @@ class Simulation:
         """Advance the simulation by exactly one tick."""
         for agent in self.state.agents.values():
             self.world.advance_agent(agent)
+            self._apply_movement_arrival(agent)
 
         self.state.tick += 1
         self.state.simulation_time += self.world.tick_duration
