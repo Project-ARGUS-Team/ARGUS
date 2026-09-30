@@ -43,6 +43,9 @@ class ScenarioLLMProvider:
         self.social_radius = social_radius
         self.roads = roads
         self.call_count = 0
+        # Per-agent committed road routes. A route is recomputed only when
+        # the destination/road constraints change or the current route ends.
+        self._route_cache = {}
 
     @staticmethod
     def _distance(a: Vector2, b: Vector2) -> float:
@@ -68,6 +71,73 @@ class ScenarioLLMProvider:
 
 
 
+    def _road_route(
+        self,
+        position: Vector2,
+        target: Vector2,
+        blocked_road_ids: tuple[str, ...] = (),
+        vehicle: bool = False,
+    ) -> tuple[Vector2, ...]:
+        """Build a stable shortest path through the allowed road graph."""
+        if not self.roads:
+            return (target,)
+
+        blocked = set(blocked_road_ids)
+        nodes = {}
+        edges = {}
+
+        for road in self.roads:
+            if road.road_id in blocked:
+                continue
+            if vehicle and not road.vehicle_allowed:
+                continue
+            if not vehicle and not road.pedestrian_allowed:
+                continue
+
+            a_key = (road.start.x, road.start.y)
+            b_key = (road.end.x, road.end.y)
+            nodes[a_key] = road.start
+            nodes[b_key] = road.end
+            edges.setdefault(a_key, []).append((road.end, road.length))
+            edges.setdefault(b_key, []).append((road.start, road.length))
+
+        if not nodes:
+            return (target,)
+
+        start = min(nodes.values(), key=lambda p: self._distance(position, p))
+        goal = min(nodes.values(), key=lambda p: self._distance(target, p))
+        start_key = (start.x, start.y)
+        goal_key = (goal.x, goal.y)
+
+        open_set = {start_key}
+        g_score = {start_key: 0.0}
+        f_score = {start_key: self._distance(start, goal)}
+        came_from = {}
+
+        while open_set:
+            current = min(open_set, key=lambda key: f_score.get(key, float("inf")))
+            if current == goal_key:
+                path_keys = [current]
+                while current in came_from:
+                    current = came_from[current]
+                    path_keys.append(current)
+                path_keys.reverse()
+                return tuple(nodes[key] for key in path_keys[1:])
+
+            open_set.remove(current)
+            for neighbour, cost in edges.get(current, ()):
+                neighbour_key = (neighbour.x, neighbour.y)
+                tentative = g_score[current] + cost
+                if tentative < g_score.get(neighbour_key, float("inf")):
+                    came_from[neighbour_key] = current
+                    g_score[neighbour_key] = tentative
+                    f_score[neighbour_key] = (
+                        tentative + self._distance(neighbour, goal)
+                    )
+                    open_set.add(neighbour_key)
+
+        return (target,)
+
     def _road_waypoint(
         self,
         position: Vector2,
@@ -76,73 +146,55 @@ class ScenarioLLMProvider:
         blocked_road_ids: tuple[str, ...] = (),
         vehicle: bool = False,
     ) -> Vector2:
-        """Return a waypoint on the pedestrian network toward a target."""
+        """Return the next waypoint from a committed road route."""
         if not self.roads:
             return target
 
-        # Vehicles must remain on the road network. Pedestrians may use
-        # deterministic shortcuts, but cars never cut across the map.
         index = self._agent_index(agent_id)
         if not vehicle and (index + int(target.x * 3) + int(target.y * 5)) % 13 == 0:
             return target
 
-        nodes: list[Vector2] = []
-        edges: dict[tuple[float, float], list[tuple[Vector2, float]]] = {}
-        blocked = set(blocked_road_ids)
-        for road in self.roads:
-            if road.road_id in blocked:
-                continue
-            for a, b in ((road.start, road.end), (road.end, road.start)):
-                ka = (a.x, a.y)
-                nodes.extend((a, b))
-                edges.setdefault(ka, []).append(
-                    (b, self._distance(a, b))
-                )
-
-        unique: dict[tuple[float, float], Vector2] = {
-            (node.x, node.y): node for node in nodes
-        }
-        start = min(unique.values(), key=lambda p: self._distance(position, p))
-        goal = min(unique.values(), key=lambda p: self._distance(target, p))
-
-        distances = {(start.x, start.y): 0.0}
-        previous: dict[tuple[float, float], tuple[float, float] | None] = {
-            (start.x, start.y): None
-        }
-        unvisited = set(distances)
-        while unvisited:
-            current_key = min(
-                unvisited,
-                key=lambda key: distances.get(key, float("inf"))
-                + self._distance(unique[key], goal),
+        cache_key = (
+            (target.x, target.y),
+            tuple(sorted(blocked_road_ids)),
+            vehicle,
+        )
+        cached = self._route_cache.get(agent_id)
+        if cached is None or cached[:3] != cache_key:
+            route = self._road_route(
+                position,
+                target,
+                blocked_road_ids,
+                vehicle,
             )
-            unvisited.remove(current_key)
-            if current_key == (goal.x, goal.y):
-                break
-            for neighbour, cost in edges.get(current_key, ()):
-                key = (neighbour.x, neighbour.y)
-                new_distance = distances[current_key] + cost
-                if new_distance < distances.get(key, float("inf")):
-                    distances[key] = new_distance
-                    previous[key] = current_key
-                    unvisited.add(key)
+            cached = (cache_key[0], cache_key[1], cache_key[2], route)
+            self._route_cache[agent_id] = cached
 
-        goal_key = (goal.x, goal.y)
-        if goal_key not in previous:
+        route = cached[3]
+        if not route:
             return target
 
-        path = [goal_key]
-        while path[-1] != (start.x, start.y):
-            parent = previous.get(path[-1])
-            if parent is None:
-                break
-            path.append(parent)
-        path.reverse()
+        remaining = list(route)
+        while len(remaining) > 1 and self._distance(position, remaining[0]) <= self.arrival_radius:
+            remaining.pop(0)
 
-        if len(path) <= 1:
+        if not remaining:
+            self._route_cache.pop(agent_id, None)
             return target
-        waypoint = unique[path[1]]
-        return waypoint if self._distance(position, waypoint) > self.arrival_radius else target
+
+        self._route_cache[agent_id] = (
+            cached[0],
+            cached[1],
+            cached[2],
+            tuple(remaining),
+        )
+        waypoint = remaining[0]
+
+        if len(remaining) == 1 and self._distance(position, waypoint) <= self.arrival_radius:
+            self._route_cache.pop(agent_id, None)
+            return target
+
+        return waypoint
 
     def request_cognitive_update(self, context: AgentContext) -> StateDelta:
         self.call_count += 1
@@ -154,16 +206,32 @@ class ScenarioLLMProvider:
         if participating_events:
             event = min(participating_events, key=lambda item: item.distance)
             if event.distance <= self.arrival_radius:
+                self._route_cache.pop(context.agent_id, None)
                 return StateDelta(
                     action=Action(
                         action_type=ActionType.INTERACT,
                         target_position=event.position,
                     ),
                 )
+
+            blocked = (
+                context.closed_road_ids
+                if context.transport_mode == "car"
+                else ()
+            )
+            target = self._road_waypoint(
+                context.position,
+                event.position,
+                context.agent_id,
+                blocked,
+                context.transport_mode == "car",
+            )
             return StateDelta(
+                activity=ActivityType.COMMUTE,
+                travel_destination=event.position,
                 action=Action(
                     action_type=ActionType.MOVE,
-                    target_position=event.position,
+                    target_position=target,
                 ),
             )
 
@@ -302,6 +370,7 @@ class ScenarioLLMProvider:
                     )
 
             if distance <= self.arrival_radius:
+                self._route_cache.pop(context.agent_id, None)
                 return StateDelta(
                     goal=goal,
                     activity=activity,
