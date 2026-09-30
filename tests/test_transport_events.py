@@ -182,7 +182,16 @@ def test_route_keeps_current_waypoint_until_reached() -> None:
     assert delta.action.target_position == Vector2(20.0, 0.0)
 
 
-def test_central_plaza_to_market_uses_market_road() -> None:
+def test_market_road_is_not_part_of_baseline_map() -> None:
+    scenario = create_baseline_scenario(agent_count=1, seed=42)
+
+    road_names = {road.name for road in scenario.roads}
+
+    assert "Market Road" not in road_names
+    assert "road-central-west" not in {road.road_id for road in scenario.roads}
+
+
+def test_plaza_to_market_uses_available_route_after_map_simplification() -> None:
     scenario = create_baseline_scenario(agent_count=1, seed=42)
     provider = ScenarioLLMProvider(roads=scenario.roads)
 
@@ -193,28 +202,10 @@ def test_central_plaza_to_market_uses_market_road() -> None:
         vehicle=True,
     )
 
-    assert waypoint == Vector2(25.0, 58.0)
-
-
-def test_committed_route_advances_monotonically_from_plaza() -> None:
-    scenario = create_baseline_scenario(agent_count=1, seed=42)
-    provider = ScenarioLLMProvider(roads=scenario.roads, arrival_radius=4.0)
-
-    first = provider._road_waypoint(
-        Vector2(105.0, 34.0),
-        Vector2(30.0, 58.0),
-        "agent-0001",
-        vehicle=True,
-    )
-    second = provider._road_waypoint(
-        Vector2(88.0, 55.0),
-        Vector2(30.0, 58.0),
-        "agent-0001",
-        vehicle=True,
-    )
-
-    assert first == Vector2(88.0, 55.0)
-    assert second == Vector2(25.0, 58.0)
+    # Market Road has deliberately been removed from the baseline. The first
+    # valid graph waypoint is therefore Central Station, followed by the
+    # eastern/northern connectors to Market.
+    assert waypoint == Vector2(145.0, 55.0)
 
 
 def test_vehicle_route_respects_vehicle_access() -> None:
@@ -271,3 +262,47 @@ def test_route_does_not_keep_wrong_previous_waypoint_at_junction() -> None:
 
     assert delta.action is not None
     assert delta.action.target_position == Vector2(25.0, 58.0)
+
+def test_transport_is_mixed_within_each_occupation() -> None:
+    scenario = create_baseline_scenario(agent_count=60, seed=42)
+
+    by_occupation: dict[str, set[TransportMode]] = {}
+    for agent in scenario.simulation.agents.values():
+        assert agent.profile is not None
+        by_occupation.setdefault(agent.profile.occupation, set()).add(
+            agent.transport_mode
+        )
+
+    assert all(
+        modes == {TransportMode.CAR, TransportMode.WALK}
+        for modes in by_occupation.values()
+    )
+
+
+def test_routines_have_small_deterministic_time_variation() -> None:
+    first = create_baseline_scenario(agent_count=10, seed=42)
+    second = create_baseline_scenario(agent_count=10, seed=42)
+
+    first_routines = {
+        agent.agent_id: agent.profile.routine
+        for agent in first.simulation.agents.values()
+        if agent.profile is not None
+    }
+    second_routines = {
+        agent.agent_id: agent.profile.routine
+        for agent in second.simulation.agents.values()
+        if agent.profile is not None
+    }
+
+    assert first_routines == second_routines
+
+    departure_times = {
+        routine[1].start_tick
+        for routine in first_routines.values()
+        if len(routine) > 1
+    }
+    assert len(departure_times) > 1
+
+    for routine in first_routines.values():
+        assert all(0 <= entry.start_tick < entry.end_tick <= 720 for entry in routine)
+
