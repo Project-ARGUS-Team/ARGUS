@@ -165,6 +165,26 @@ class ScenarioLLMProvider:
                 ),
             )
 
+        # Persistent memories can bias the next day toward places and people
+        # that mattered previously, approximating Smallville-style retrieval.
+        remembered_contacts = {
+            related_id
+            for memory in context.memories
+            if memory.kind in {"interaction", "reflection"}
+            for related_id in memory.related_agent_ids
+        }
+        preferred_social_id = next(
+            (
+                item.agent_id
+                for item in sorted(
+                    context.nearby_agents,
+                    key=lambda item: item.distance,
+                )
+                if item.agent_id in remembered_contacts
+            ),
+            None,
+        )
+
         routine = context.current_routine
         if routine is not None:
             activity = routine.activity
@@ -235,15 +255,24 @@ class ScenarioLLMProvider:
                 )
 
             if activity.value == "social" and context.nearby_agents:
-                nearby = min(
+                nearby = next(
                     (
                         item
                         for item in context.nearby_agents
-                        if item.agent_id in context.social_connections
+                        if item.agent_id == preferred_social_id
                     ),
-                    key=lambda item: item.distance,
-                    default=None,
+                    None,
                 )
+                if nearby is None:
+                    nearby = min(
+                        (
+                            item
+                            for item in context.nearby_agents
+                            if item.agent_id in context.social_connections
+                        ),
+                        key=lambda item: item.distance,
+                        default=None,
+                    )
                 if nearby is not None and nearby.distance <= self.social_radius:
                     return StateDelta(
                         goal=goal,
