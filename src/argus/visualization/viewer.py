@@ -236,11 +236,7 @@ class SimulationViewer:
         current_destination = self._landmark_name(
             agent.travel_destination
             if agent.travel_destination is not None
-            else (
-                agent.current_action.target_position
-                if agent.current_action is not None
-                else None
-            )
+            else agent.goal.target_position
         )
 
         text = (
