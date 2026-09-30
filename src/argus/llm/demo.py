@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import random
 
 from argus.simulation.agent import Action, ActionType, ActivityType
 from argus.simulation.context import AgentContext, StateDelta
@@ -205,6 +206,77 @@ class ScenarioLLMProvider:
 
         return waypoint
 
+
+    def _daily_seed(self, context: AgentContext, salt: int = 0) -> int:
+        """Create a stable pseudo-random seed for this agent and day."""
+        index = self._agent_index(context.agent_id) + 1
+        day = context.simulation_tick // 720
+        return (index * 73856093 + day * 19349663 + salt * 83492791) & 0xFFFFFFFF
+
+    def _is_day_off(self, context: AgentContext) -> bool:
+        """Return whether this agent takes an occasional deterministic day off."""
+        if context.simulation_tick // 720 == 0:
+            return False
+        return random.Random(self._daily_seed(context, 11)).random() < 0.14
+
+    def _leisure_target(self, context: AgentContext, salt: int = 0) -> Vector2:
+        """Choose a leisure destination from the agent's personal options."""
+        if context.profile is None:
+            return context.position
+        options = context.profile.leisure_options
+        if not options and context.profile.leisure_position is not None:
+            options = (context.profile.leisure_position,)
+        if not options:
+            return context.position
+        return random.Random(self._daily_seed(context, 31 + salt)).choice(options)
+
+    def _day_off_activity(self, context: AgentContext) -> tuple[ActivityType, str, Vector2, float]:
+        """Choose an activity and destination for a day off."""
+        local_tick = context.simulation_tick % 720
+        if local_tick < 45:
+            return ActivityType.HOME, "Morning at home", context.profile.home_position, 0.45
+        if local_tick < 180:
+            return ActivityType.LEISURE, "Day off outing", self._leisure_target(context), 0.65
+        if local_tick < 225:
+            return ActivityType.EAT, "Lunch outing", self._leisure_target(context, 1), 0.55
+        if local_tick < 360:
+            return ActivityType.LEISURE, "Free afternoon", self._leisure_target(context, 2), 0.65
+        if local_tick < 480:
+            return ActivityType.SOCIAL, "Spending time with people", self._leisure_target(context, 3), 0.70
+        return ActivityType.HOME, "Evening at home", context.profile.home_position, 0.40
+
+    def _nearby_interaction(self, context: AgentContext) -> StateDelta | None:
+        """Occasionally turn a nearby encounter into a short conversation."""
+        if context.profile is None:
+            return None
+        candidates = [
+            item for item in context.nearby_agents
+            if item.distance <= self.social_radius * 1.5
+        ]
+        if not candidates:
+            return None
+
+        rng = random.Random(self._daily_seed(context, context.simulation_tick + 101))
+        nearby = rng.choice(candidates)
+        relationship = dict(context.relationship_strengths).get(nearby.agent_id, 0.5)
+        proximity = max(0.0, 1.0 - nearby.distance / (self.social_radius * 1.5))
+        chance = 0.006 + proximity * 0.022
+        chance *= 0.65 + context.profile.social_preference * 0.75
+        chance *= 0.85 + relationship * 0.45
+
+        if rng.random() >= min(0.08, chance):
+            return None
+
+        return StateDelta(
+            activity=ActivityType.SOCIAL,
+            action=Action(
+                action_type=ActionType.INTERACT,
+                target_agent_id=nearby.agent_id,
+                target_position=nearby.position,
+                duration=1.0,
+            ),
+        )
+
     def request_cognitive_update(self, context: AgentContext) -> StateDelta:
         self.call_count += 1
 
@@ -244,6 +316,10 @@ class ScenarioLLMProvider:
                 ),
             )
 
+        interaction = self._nearby_interaction(context)
+        if interaction is not None:
+            return interaction
+
         # Persistent memories can bias the next day toward places and people
         # that mattered previously, approximating Smallville-style retrieval.
         remembered_contacts = {
@@ -265,7 +341,49 @@ class ScenarioLLMProvider:
         )
 
         routine = context.current_routine
+
         if routine is not None:
+            if self._is_day_off(context) and routine.activity in {
+                ActivityType.COMMUTE,
+                ActivityType.WORK,
+                ActivityType.STUDY,
+                ActivityType.EAT,
+            }:
+                activity, description, target_position, importance = self._day_off_activity(context)
+                goal = type(context.goal)(
+                    goal_id=f"{context.agent_id}-{context.simulation_tick // 720:04d}-day-off",
+                    description=description,
+                    target_position=target_position,
+                    importance=importance,
+                )
+                distance = self._distance(context.position, target_position)
+                if distance <= self.arrival_radius:
+                    self._route_cache.pop(context.agent_id, None)
+                    return StateDelta(
+                        goal=goal,
+                        activity=activity,
+                        action=Action(
+                            action_type=ActionType.WAIT,
+                            target_position=target_position,
+                        ),
+                    )
+                target = self._road_waypoint(
+                    context.position,
+                    target_position,
+                    context.agent_id,
+                    context.closed_road_ids if context.transport_mode == "car" else (),
+                    context.transport_mode == "car",
+                )
+                return StateDelta(
+                    goal=goal,
+                    activity=activity,
+                    travel_destination=target_position,
+                    action=Action(
+                        action_type=ActionType.MOVE,
+                        target_position=target,
+                    ),
+                )
+
             activity = routine.activity
             goal = context.goal
             if (
