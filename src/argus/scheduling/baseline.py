@@ -7,7 +7,7 @@ from uuid import uuid4
 from argus.llm.gateway import LLMGateway
 from argus.scheduling.relevance import IRelevanceScorer
 from argus.simulation.simulation import Simulation
-from argus.simulation.agent import ActionType
+from argus.simulation.agent import ActionType, ActivityType
 from argus.telemetry.models import CognitiveUpdateEvent, RelevanceScoreRecord
 from argus.telemetry.repository import TelemetryRepository
 
@@ -87,6 +87,7 @@ class BaselineScheduler:
                 and previous_action.action_type == ActionType.INTERACT
                 else None
             )
+            previous_activity = agent.current_activity
             self.simulation.request_cognitive_update(agent.agent_id, self.gateway)
             updates += 1
 
@@ -129,6 +130,27 @@ class BaselineScheduler:
                         importance=0.75,
                         related_agent_ids=(agent.agent_id,),
                     )
+
+            if (
+                previous_activity != agent.current_activity
+                and previous_activity == ActionType.INTERACT
+            ):
+                pass
+
+            if (
+                current_action is not None
+                and current_action.action_type == ActionType.WAIT
+                and agent.current_activity != ActivityType.HOME
+            ):
+                self.simulation.add_memory(
+                    agent.agent_id,
+                    kind="experience",
+                    summary=(
+                        f"Spent time at {agent.current_activity.value} "
+                        f"during day {self.simulation.current_tick // 720}."
+                    ),
+                    importance=0.45,
+                )
 
             if self.telemetry is not None:
                 self.telemetry.record_cognitive_update(
