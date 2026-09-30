@@ -150,10 +150,6 @@ class ScenarioLLMProvider:
         if not self.roads:
             return target
 
-        index = self._agent_index(agent_id)
-        if not vehicle and (index + int(target.x * 3) + int(target.y * 5)) % 13 == 0:
-            return target
-
         cache_key = (
             (target.x, target.y),
             tuple(sorted(blocked_road_ids)),
