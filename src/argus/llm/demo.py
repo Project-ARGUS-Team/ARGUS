@@ -236,10 +236,15 @@ class ScenarioLLMProvider:
 
             if activity.value == "social" and context.nearby_agents:
                 nearby = min(
-                    context.nearby_agents,
+                    (
+                        item
+                        for item in context.nearby_agents
+                        if item.agent_id in context.social_connections
+                    ),
                     key=lambda item: item.distance,
+                    default=None,
                 )
-                if nearby.distance <= self.social_radius:
+                if nearby is not None and nearby.distance <= self.social_radius:
                     return StateDelta(
                         goal=goal,
                         activity=activity,
