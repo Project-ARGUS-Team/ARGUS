@@ -74,14 +74,16 @@ class ScenarioLLMProvider:
         target: Vector2,
         agent_id: str = "",
         blocked_road_ids: tuple[str, ...] = (),
+        vehicle: bool = False,
     ) -> Vector2:
         """Return a waypoint on the pedestrian network toward a target."""
         if not self.roads:
             return target
 
-        # A small deterministic fraction of trips takes a pedestrian shortcut.
+        # Vehicles must remain on the road network. Pedestrians may use
+        # deterministic shortcuts, but cars never cut across the map.
         index = self._agent_index(agent_id)
-        if (index + int(target.x * 3) + int(target.y * 5)) % 13 == 0:
+        if not vehicle and (index + int(target.x * 3) + int(target.y * 5)) % 13 == 0:
             return target
 
         nodes: list[Vector2] = []
@@ -213,11 +215,6 @@ class ScenarioLLMProvider:
             # into the next activity. The explicit travel destination is the
             # physical commitment; the action target may be a road waypoint.
             trip_destination = context.travel_destination
-            if trip_destination is None and (
-                context.current_action is not None
-                and context.current_action.action_type == ActionType.MOVE
-            ):
-                trip_destination = context.current_action.target_position
 
             if (
                 trip_destination is not None
@@ -234,6 +231,7 @@ class ScenarioLLMProvider:
                     trip_destination,
                     context.agent_id,
                     blocked,
+                    context.transport_mode == "car",
                 )
                 trip_goal = type(goal)(
                     goal_id=(
@@ -301,6 +299,7 @@ class ScenarioLLMProvider:
                 context.closed_road_ids
                 if context.transport_mode == "car"
                 else (),
+                context.transport_mode == "car",
             )
             return StateDelta(
                 goal=goal,
