@@ -98,3 +98,55 @@ def test_trip_is_not_abandoned_when_schedule_moves_ahead() -> None:
     assert delta.action is not None
     assert delta.action.action_type == ActionType.MOVE
     assert delta.action.target_position is not None
+
+
+def test_interaction_scenario_is_a_separate_two_agent_village():
+    from argus.simulation.scenario import create_interaction_scenario
+    from argus.simulation.agent import TransportMode
+
+    scenario = create_interaction_scenario()
+
+    assert len(scenario.simulation.agents) == 2
+    assert scenario.simulation.world.width == 100.0
+    assert scenario.simulation.world.height == 80.0
+    assert len(scenario.landmarks) == 7
+    assert scenario.simulation.state.events == {}
+    assert all(agent.transport_mode == TransportMode.WALK for agent in scenario.simulation.agents.values())
+    assert {landmark.name for landmark in scenario.landmarks} == {
+        "Arun's House",
+        "Maya's House",
+        "Town Hall",
+        "Schoolhouse",
+        "Village Café",
+        "Village Market",
+        "Village Park",
+    }
+
+
+def test_interaction_scenario_agents_keep_usual_routines():
+    from argus.simulation.scenario import create_interaction_scenario
+
+    scenario = create_interaction_scenario()
+    agents = list(scenario.simulation.agents.values())
+
+    assert agents[0].profile is not None
+    assert agents[1].profile is not None
+    assert agents[0].profile.occupation == "Office worker"
+    assert agents[1].profile.occupation == "Student"
+    assert all(agent.profile.routine for agent in agents)
+    assert all(agent.profile.routine[0].activity.value == "home" for agent in agents)
+    assert all(len(agent.profile.routine) >= 7 for agent in agents)
+    assert agents[0].profile.work_position.x == 70.0
+    assert agents[1].profile.work_position.x == 68.0
+
+
+def test_interaction_scenario_agents_know_each_other():
+    from argus.simulation.scenario import create_interaction_scenario
+
+    scenario = create_interaction_scenario()
+    first, second = scenario.simulation.agents.values()
+
+    assert second.agent_id in first.social_connections
+    assert first.agent_id in second.social_connections
+    assert first.relationships[second.agent_id] == 0.50
+    assert second.relationships[first.agent_id] == 0.50
