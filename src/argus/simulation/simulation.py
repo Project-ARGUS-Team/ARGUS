@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import random
 from typing import TYPE_CHECKING
 
-from argus.simulation.agent import ActionType, AgentState, Goal, MemoryRecord, Vector2
+from argus.simulation.agent import ActionType, ActivityType, AgentState, Goal, MemoryRecord, Vector2
 from argus.simulation.context import (
     AgentContext,
     AgentObservation,
@@ -308,6 +308,10 @@ class Simulation:
         else:
             agent.velocity = Vector2(0.0, 0.0)
             agent.travel_destination = None
+
+    def _is_sleeping_hour(self) -> bool:
+        hour = (6 * 60 + (self.current_tick % 720) * 2) % (24 * 60) // 60
+        return hour < 6 or hour >= 23
 
     def _traffic_factor(self, agent_id: str) -> float:
         """Estimate local traffic pressure for a moving agent."""
