@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import random
 from typing import TYPE_CHECKING
 
-from argus.simulation.agent import ActionType, AgentState, Goal, Vector2
+from argus.simulation.agent import ActionType, AgentState, Goal, MemoryRecord, Vector2
 from argus.simulation.context import (
     AgentContext,
     AgentObservation,
@@ -183,10 +183,88 @@ class Simulation:
             travel_destination=agent.travel_destination,
             closed_road_ids=closed_road_ids,
             traffic_factor=traffic_factor,
+            memories=tuple(agent.memories[-8:]),
+            relationship_strengths=tuple(sorted(agent.relationships.items())),
             nearby_agents=tuple(nearby_agents),
             active_events=tuple(active_events),
             social_connections=tuple(sorted(agent.social_connections)),
         )
+
+    def add_memory(
+        self,
+        agent_id: str,
+        *,
+        kind: str,
+        summary: str,
+        importance: float = 0.5,
+        related_agent_ids: tuple[str, ...] = (),
+    ) -> MemoryRecord:
+        """Append a compact episodic memory to an agent."""
+        agent = self.state.agents[agent_id]
+        day = self.current_tick // 720
+        memory = MemoryRecord(
+            memory_id=f"{agent_id}-mem-{len(agent.memories) + 1:04d}",
+            day=day,
+            tick=self.current_tick,
+            kind=kind,
+            summary=summary,
+            importance=max(0.0, min(1.0, importance)),
+            related_agent_ids=related_agent_ids,
+        )
+        agent.memories.append(memory)
+        if len(agent.memories) > 100:
+            del agent.memories[:-100]
+        return memory
+
+    def register_interaction(
+        self,
+        agent_id: str,
+        target_agent_id: str,
+        *,
+        positive: bool = True,
+    ) -> None:
+        """Update a simple persistent relationship strength."""
+        agent = self.state.agents[agent_id]
+        current = agent.relationships.get(target_agent_id, 0.5)
+        delta = 0.08 if positive else -0.05
+        agent.relationships[target_agent_id] = max(
+            0.0,
+            min(1.0, current + delta),
+        )
+
+    def end_of_day_reflection(self) -> None:
+        """Create a compact daily reflection from important experiences."""
+        for agent in self.state.agents.values():
+            if not agent.active or not agent.memories:
+                continue
+            today = self.current_tick // 720
+            recent = [memory for memory in agent.memories if memory.day == today]
+            if not recent:
+                continue
+            highlights = sorted(
+                recent,
+                key=lambda memory: memory.importance,
+                reverse=True,
+            )[:3]
+            summary = "; ".join(memory.summary for memory in highlights)
+            self.add_memory(
+                agent.agent_id,
+                kind="reflection",
+                summary=f"Reflection from day {today}: {summary}",
+                importance=min(
+                    1.0,
+                    sum(memory.importance for memory in highlights) / len(highlights),
+                ),
+                related_agent_ids=tuple(
+                    sorted(
+                        {
+                            related_id
+                            for memory in highlights
+                            for related_id in memory.related_agent_ids
+                        }
+                    )
+                ),
+            )
 
     def apply_state_delta(self, agent_id: str, delta: StateDelta) -> None:
         """Apply a cognitive result to authoritative agent state."""
