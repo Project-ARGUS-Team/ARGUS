@@ -134,6 +134,7 @@ class AgentState:
     plan: list[Action] = field(default_factory=list)
     social_connections: set[str] = field(default_factory=set)
     active: bool = True
+    asleep: bool = False
 
     def set_action(self, action: Action) -> None:
         self.current_action = action
