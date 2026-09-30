@@ -78,7 +78,7 @@ class ScenarioLLMProvider:
         blocked_road_ids: tuple[str, ...] = (),
         vehicle: bool = False,
     ) -> tuple[Vector2, ...]:
-        """Build a stable shortest path through the allowed road graph."""
+        """Build a deterministic shortest path through the allowed road graph."""
         if not self.roads:
             return (target,)
 
@@ -109,32 +109,38 @@ class ScenarioLLMProvider:
         start_key = (start.x, start.y)
         goal_key = (goal.x, goal.y)
 
-        open_set = {start_key}
-        g_score = {start_key: 0.0}
-        f_score = {start_key: self._distance(start, goal)}
-        came_from = {}
+        # Dijkstra is deliberately used here instead of repeatedly selecting
+        # the nearest graph node. Once a trip starts, this produces one
+        # deterministic route through the road graph.
+        distances = {start_key: 0.0}
+        previous = {}
+        unvisited = set(nodes)
 
-        while open_set:
-            current = min(open_set, key=lambda key: f_score.get(key, float("inf")))
+        while unvisited:
+            current = min(
+                unvisited,
+                key=lambda key: distances.get(key, float("inf")),
+            )
+            if current not in distances:
+                break
+            unvisited.remove(current)
+
             if current == goal_key:
-                path_keys = [current]
-                while current in came_from:
-                    current = came_from[current]
-                    path_keys.append(current)
-                path_keys.reverse()
-                return tuple(nodes[key] for key in path_keys[1:])
+                path = [current]
+                while path[-1] != start_key:
+                    parent = previous.get(path[-1])
+                    if parent is None:
+                        return (target,)
+                    path.append(parent)
+                path.reverse()
+                return tuple(nodes[key] for key in path[1:])
 
-            open_set.remove(current)
             for neighbour, cost in edges.get(current, ()):
                 neighbour_key = (neighbour.x, neighbour.y)
-                tentative = g_score[current] + cost
-                if tentative < g_score.get(neighbour_key, float("inf")):
-                    came_from[neighbour_key] = current
-                    g_score[neighbour_key] = tentative
-                    f_score[neighbour_key] = (
-                        tentative + self._distance(neighbour, goal)
-                    )
-                    open_set.add(neighbour_key)
+                new_distance = distances[current] + cost
+                if new_distance < distances.get(neighbour_key, float("inf")):
+                    distances[neighbour_key] = new_distance
+                    previous[neighbour_key] = current
 
         return (target,)
 
@@ -163,10 +169,16 @@ class ScenarioLLMProvider:
                 blocked_road_ids,
                 vehicle,
             )
-            cached = (cache_key[0], cache_key[1], cache_key[2], route)
+            cached = (
+                cache_key[0],
+                cache_key[1],
+                cache_key[2],
+                (position.x, position.y),
+                route,
+            )
             self._route_cache[agent_id] = cached
 
-        route = cached[3]
+        route = cached[4]
         if not route:
             return target
 
@@ -182,6 +194,7 @@ class ScenarioLLMProvider:
             cached[0],
             cached[1],
             cached[2],
+            cached[3],
             tuple(remaining),
         )
         waypoint = remaining[0]
