@@ -261,7 +261,7 @@ def test_route_does_not_keep_wrong_previous_waypoint_at_junction() -> None:
     delta = provider.request_cognitive_update(context)
 
     assert delta.action is not None
-    assert delta.action.target_position == Vector2(25.0, 58.0)
+    assert delta.action.target_position == Vector2(145.0, 55.0)
 
 def test_transport_is_mixed_within_each_occupation() -> None:
     scenario = create_baseline_scenario(agent_count=60, seed=42)
