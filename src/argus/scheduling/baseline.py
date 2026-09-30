@@ -32,10 +32,12 @@ class BaselineScheduler:
         self._run_started = False
 
     def _record_thought(self, agent, previous_action, previous_activity) -> None:
-        """Record a new concise explanation when an agent changes course."""
+        """Record a concise third-person explanation when an agent changes course."""
         action = agent.current_action
         if action is None:
             return
+
+        name = agent.profile.name if agent.profile else agent.agent_id
         previous_type = previous_action.action_type if previous_action else None
         target_changed = (
             previous_action is not None
@@ -49,25 +51,29 @@ class BaselineScheduler:
         )
         if not meaningful_change:
             return
+
         target_name = None
         if action.target_agent_id in self.simulation.agents:
             target = self.simulation.agents[action.target_agent_id]
             target_name = target.profile.name if target.profile else action.target_agent_id
+
         if action.action_type == ActionType.MOVE:
             if agent.current_activity == ActivityType.COMMUTE:
-                thought = f"I need to continue my trip because {agent.goal.description.lower()}."
+                thought = f"{name} continues the trip because {agent.goal.description.lower()}."
             else:
-                thought = f"I should head out because {agent.goal.description.lower()}."
+                thought = f"{name} leaves because {agent.goal.description.lower()}."
         elif action.action_type == ActionType.WAIT:
             if agent.current_activity == ActivityType.HOME:
-                thought = "I'm home, so I'll stay here and rest for now."
+                thought = f"{name} stays home to rest."
             else:
-                thought = f"I've arrived, so I'll spend this time on {agent.current_activity.value}."
+                thought = f"{name} has arrived and spends time on {agent.current_activity.value}."
         elif action.action_type == ActionType.INTERACT and target_name is not None:
-            thought = f"I want to talk with {target_name} while we're both here."
+            thought = f"{name} wants to talk with {target_name} while they're both here."
         else:
-            thought = "Something needs my attention, so I'm responding to it."
+            thought = f"{name} responds to something that needs attention."
+
         agent.add_thought(self.simulation.current_tick, thought)
+
     @property
     def current_tick(self) -> int:
         """Return the simulation tick managed by this scheduler."""
