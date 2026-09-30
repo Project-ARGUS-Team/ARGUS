@@ -6,13 +6,21 @@ from dataclasses import dataclass
 import random
 from typing import TYPE_CHECKING
 
-from argus.simulation.agent import ActionType, ActivityType, AgentState, Goal, MemoryRecord, Vector2
+from argus.simulation.agent import (
+    ActionType,
+    ActivityType,
+    AgentState,
+    Goal,
+    MemoryRecord,
+    Vector2,
+)
 from argus.simulation.context import (
     AgentContext,
     AgentObservation,
     EventObservation,
     StateDelta,
 )
+from argus.simulation.conversation import choose_conversation
 from argus.simulation.events import WorldEvent
 from argus.simulation.world import RoadSegment, World
 
@@ -44,10 +52,13 @@ class Simulation:
         state: SimulationState,
         world: World,
         roads: tuple[RoadSegment, ...] = (),
+        seed: int = 42,
     ) -> None:
         self.state = state
         self.world = world
         self.roads = roads
+        self._conversation_rng = random.Random(seed)
+        self._interaction_ticks: dict[tuple[str, str], int] = {}
 
     @classmethod
     def create(
@@ -88,6 +99,7 @@ class Simulation:
             state=SimulationState(agents=agents),
             world=world,
             roads=roads,
+            seed=seed,
         )
 
     @property
@@ -231,6 +243,51 @@ class Simulation:
             0.0,
             min(1.0, current + delta),
         )
+
+    def record_conversation(
+        self,
+        agent_id: str,
+        target_agent_id: str,
+    ) -> bool:
+        """Create one randomized conversation and store it in both memories."""
+        if agent_id == target_agent_id:
+            return False
+
+        pair = tuple(sorted((agent_id, target_agent_id)))
+        if self._interaction_ticks.get(pair) == self.current_tick:
+            return False
+
+        agent = self.state.agents[agent_id]
+        target = self.state.agents[target_agent_id]
+        conversation = choose_conversation(self._conversation_rng)
+        speaker = agent.profile.name if agent.profile else agent_id
+        listener = target.profile.name if target.profile else target_agent_id
+
+        self._interaction_ticks[pair] = self.current_tick
+        self.register_interaction(agent_id, target_agent_id, positive=True)
+        self.register_interaction(target_agent_id, agent_id, positive=True)
+
+        self.add_memory(
+            agent_id,
+            kind="conversation",
+            summary=(
+                f"Talked with {listener} about {conversation.topic}. "
+                f'"{conversation.opening}" Follow-up: "{conversation.follow_up}"'
+            ),
+            importance=0.80,
+            related_agent_ids=(target_agent_id,),
+        )
+        self.add_memory(
+            target_agent_id,
+            kind="conversation",
+            summary=(
+                f"Talked with {speaker} about {conversation.topic}. "
+                f'"{conversation.opening}" Follow-up: "{conversation.follow_up}"'
+            ),
+            importance=0.80,
+            related_agent_ids=(agent_id,),
+        )
+        return True
 
     def end_of_day_reflection(self) -> None:
         """Create a compact daily reflection from important experiences."""
