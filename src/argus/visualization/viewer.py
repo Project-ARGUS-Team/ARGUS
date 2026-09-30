@@ -39,7 +39,6 @@ class SimulationViewer:
         main.pack(fill=tk.BOTH, expand=True)
 
         map_frame = tk.Frame(main)
-        map_frame.pack(fill=tk.BOTH, expand=True)
 
         width = int(self.simulation.world.width * self.scale)
         height = int(self.simulation.world.height * self.scale)
@@ -54,7 +53,6 @@ class SimulationViewer:
         self.canvas.bind("<Button-1>", self._on_canvas_click)
 
         inspector = tk.Frame(main, width=340, padx=12, pady=12)
-        inspector.pack(fill=tk.BOTH, expand=True)
         inspector.pack_propagate(False)
         main.add(map_frame, stretch="always", minsize=500)
         main.add(inspector, minsize=280)
@@ -484,6 +482,8 @@ class SimulationViewer:
 
     def play(self) -> None:
         """Start continuous simulation playback."""
+        if self.running and not self.paused:
+            return
         self.running = True
         self.paused = False
         self._run_frame()
