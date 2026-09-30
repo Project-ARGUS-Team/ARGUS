@@ -1,4 +1,4 @@
-"""Deterministic city-scale demonstration scenarios for the ARGUS baseline."""
+"""Deterministic town-scale demonstration scenarios for the ARGUS baseline."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from argus.simulation.agent import (
     TransportMode,
     Vector2,
 )
-from argus.simulation.events import WorldEvent
 from argus.simulation.simulation import Simulation
 from argus.simulation.world import RoadSegment, World
 
@@ -30,7 +29,7 @@ class Landmark:
 
 @dataclass(frozen=True, slots=True)
 class BaselineScenario:
-    """A city-scale world containing locations, routines and events."""
+    """A town-scale world containing locations, routines and pedestrian roads."""
 
     simulation: Simulation
     landmarks: tuple[Landmark, ...]
@@ -192,10 +191,10 @@ def _vary_routine(
 
 
 def create_baseline_scenario(
-    agent_count: int = 60,
+    agent_count: int = 30,
     seed: int = 42,
 ) -> BaselineScenario:
-    """Create a deterministic but varied small-city baseline scenario."""
+    """Create a deterministic but varied Smallville-style town baseline."""
     world = World(width=180.0, height=120.0, tick_duration=1.0)
     landmarks = (
         Landmark("homes_north", "North Homes", Vector2(25.0, 18.0), 9.0),
@@ -217,6 +216,7 @@ def create_baseline_scenario(
         RoadSegment("road-north-east", "Hospital Avenue", Vector2(62, 16), Vector2(145, 18)),
         RoadSegment("road-central-east", "Station Road", Vector2(88, 55), Vector2(145, 55)),
         RoadSegment("road-south-west", "Park Road", Vector2(45, 94), Vector2(82, 88)),
+        RoadSegment("road-park-market", "Park Market Street", Vector2(45, 94), Vector2(30, 58)),
         RoadSegment("road-south-east", "Entertainment Road", Vector2(82, 88), Vector2(128, 92)),
         RoadSegment("road-south-homes", "South Avenue", Vector2(128, 92), Vector2(165, 100)),
         RoadSegment("road-vertical-west", "West Connector", Vector2(25, 18), Vector2(30, 58)),
@@ -242,27 +242,15 @@ def create_baseline_scenario(
     agents = list(simulation.agents.values())
     routine_rng = random.Random(seed + 20_000)
     for index, agent in enumerate(agents):
-        # Transport is independent of occupation. The old index%5 rule
-        # accidentally gave the same modes to the same occupation groups.
-        transport_mode = (
-            TransportMode.CAR
-            if ((index * 5 + seed) % 10) < 4
-            else TransportMode.WALK
-        )
+        # The baseline is deliberately pedestrian-only. Keep the transport
+        # field for compatibility with the wider architecture, but every
+        # baseline resident walks.
+        transport_mode = TransportMode.WALK
         home_center = home_centers[index % len(home_centers)]
-        if transport_mode == TransportMode.CAR:
-            # Car users live directly on the residential road network.
-            if index % len(home_centers) == 0:
-                t = ((index * 7) % 13) / 12.0
-                home = Vector2(25.0 + 37.0 * t, 18.0 - 2.0 * t)
-            else:
-                t = ((index * 11) % 13) / 12.0
-                home = Vector2(128.0 + 37.0 * t, 92.0 + 8.0 * t)
-        else:
-            home = Vector2(
-                home_center.x + ((index * 7) % 13 - 6) * 0.45,
-                home_center.y + ((index * 11) % 13 - 6) * 0.45,
-            )
+        home = Vector2(
+            home_center.x + ((index * 7) % 13 - 6) * 0.45,
+            home_center.y + ((index * 11) % 13 - 6) * 0.45,
+        )
         profile = _build_profile(
             index,
             home,
@@ -281,7 +269,7 @@ def create_baseline_scenario(
             routine=_vary_routine(profile.routine, routine_rng),
         )
         agent.profile = profile
-        agent.transport_mode = profile.transport_mode
+        agent.transport_mode = TransportMode.WALK
         agent.position = home
         first_routine = profile.routine[0]
         agent.current_activity = first_routine.activity
@@ -305,63 +293,9 @@ def create_baseline_scenario(
                 agents[(index + 2) % len(agents)].agent_id
             )
 
-    rng = random.Random(seed + 10_000)
-    event_types = (
-        ("market_rush", "Market rush"),
-        ("public_gathering", "Public gathering"),
-        ("bus_delay", "Bus delay"),
-        ("minor_accident", "Minor accident"),
-        ("community_fair", "Community fair"),
-        ("power_outage", "Power outage"),
-        ("sports_event", "Sports event"),
-        ("medical_alert", "Medical alert"),
-        ("road_closure", "Road closure"),
-        ("school_event", "School event"),
-    )
-
-    events: list[WorldEvent] = []
-    for index, (event_type, _description) in enumerate(event_types):
-        landmark = landmarks[rng.randrange(len(landmarks))]
-        start_tick = rng.randint(20, 520)
-        duration = rng.randint(12, 45)
-
-        affected_road_ids: tuple[str, ...] = ()
-        if event_type == "road_closure":
-            road = roads[rng.randrange(len(roads))]
-            position = Vector2(
-                (road.start.x + road.end.x) / 2,
-                (road.start.y + road.end.y) / 2,
-            )
-            affected_road_ids = (road.road_id,)
-            participants: set[str] = set()
-        else:
-            position = landmark.position
-            participant_count = (
-                max(1, agent_count // rng.randint(5, 9))
-                if agents
-                else 0
-            )
-            participants = {
-                agents[rng.randrange(len(agents))].agent_id
-                for _ in range(participant_count)
-            }
-
-        events.append(
-            WorldEvent(
-                event_id=f"event-{index + 1:03d}",
-                event_type=event_type,
-                position=position,
-                start_tick=start_tick,
-                end_tick=start_tick + duration,
-                participants=participants,
-                importance=rng.uniform(0.35, 1.0),
-                affected_road_ids=affected_road_ids,
-            )
-        )
-
-    simulation.state.events.update(
-        {event.event_id: event for event in events}
-    )
+    # Random world events are intentionally disabled in the baseline. The
+    # event system remains available as infrastructure for a later rebuild.
+    simulation.state.events.clear()
 
     return BaselineScenario(
         simulation=simulation,
