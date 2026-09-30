@@ -1,4 +1,4 @@
-"""Interactive Tkinter viewer for the ARGUS baseline simulation."""
+"""Interactive Tkinter viewer for the ARGUS town simulation."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from argus.simulation.scenario import BaselineScenario, create_baseline_scenario
 
 
 class SimulationViewer:
-    """Slow, inspectable city-scale viewer for baseline behavior."""
+    """Slow, inspectable town-scale viewer for baseline behavior."""
 
     def __init__(
         self,
@@ -116,19 +116,6 @@ class SimulationViewer:
             command=self.reset,
         ).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        tk.Label(
-            inspector,
-            text="EVENTS",
-            font=("TkDefaultFont", 10, "bold"),
-        ).pack(anchor=tk.W)
-
-        self.event_info = tk.Label(
-            inspector,
-            text="",
-            justify=tk.LEFT,
-            anchor=tk.NW,
-        )
-        self.event_info.pack(fill=tk.X, pady=(8, 0))
 
         self._draw()
 
@@ -251,19 +238,6 @@ class SimulationViewer:
             dy = other.position.y - agent.position.y
             if (dx * dx + dy * dy) ** 0.5 <= 10.0:
                 nearby_count += 1
-
-        active_events = [
-            event.event_type
-            for event in self.simulation.state.events.values()
-            if event.is_active(self.simulation.current_tick)
-            and (
-                agent.agent_id in event.participants
-                or (
-                    (event.position.x - agent.position.x) ** 2
-                    + (event.position.y - agent.position.y) ** 2
-                ) ** 0.5 <= 12.0
-            )
-        ]
 
         display_name = agent.profile.name if agent.profile else agent.agent_id
         occupation = agent.profile.occupation if agent.profile else "No occupation"
