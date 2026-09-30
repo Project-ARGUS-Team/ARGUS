@@ -176,7 +176,14 @@ def _vary_routine(
         return routine
 
     offset = rng.choice((-15, -8, -5, 0, 5, 8, 15))
-    varied = [routine[0]]
+    first_home = routine[0]
+    home_end = max(
+        first_home.start_tick + 1,
+        min(720, first_home.end_tick + offset),
+    )
+    varied = [
+        replace(first_home, end_tick=home_end),
+    ]
     for entry in routine[1:]:
         start = max(0, min(720, entry.start_tick + offset))
         end = max(start + 1, min(720, entry.end_tick + offset))
