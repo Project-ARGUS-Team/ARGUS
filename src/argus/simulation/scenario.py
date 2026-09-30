@@ -190,6 +190,104 @@ def _vary_routine(
     return tuple(varied)
 
 
+def create_interaction_scenario(seed: int = 84) -> BaselineScenario:
+    """Create a tiny two-person village for interaction and memory work.
+
+    This is intentionally a separate scenario from the 30-agent baseline.
+    It uses a handful of individual buildings and shared public spaces so
+    two agents can be observed closely as interaction mechanics are added.
+    """
+    world = World(width=100.0, height=80.0, tick_duration=1.0)
+    landmarks = (
+        Landmark("house_a", "Arun's House", Vector2(16.0, 18.0), 5.0),
+        Landmark("house_b", "Maya's House", Vector2(24.0, 18.0), 5.0),
+        Landmark("town_hall", "Town Hall", Vector2(70.0, 18.0), 6.0),
+        Landmark("schoolhouse", "Schoolhouse", Vector2(68.0, 50.0), 6.0),
+        Landmark("cafe", "Village Café", Vector2(45.0, 42.0), 5.0),
+        Landmark("market", "Village Market", Vector2(25.0, 55.0), 6.0),
+        Landmark("park", "Village Park", Vector2(75.0, 62.0), 8.0),
+    )
+
+    roads = (
+        RoadSegment("village-main", "Main Street", Vector2(16, 18), Vector2(70, 18)),
+        RoadSegment("school-lane", "School Lane", Vector2(70, 18), Vector2(68, 50)),
+        RoadSegment("cafe-lane", "Café Lane", Vector2(45, 42), Vector2(68, 50)),
+        RoadSegment("market-lane", "Market Lane", Vector2(25, 55), Vector2(45, 42)),
+        RoadSegment("park-lane", "Park Lane", Vector2(45, 42), Vector2(75, 62)),
+        RoadSegment("south-lane", "South Lane", Vector2(24, 18), Vector2(25, 55)),
+    )
+
+    simulation = Simulation.create(
+        agent_count=2,
+        seed=seed,
+        world=world,
+        roads=roads,
+    )
+    landmark_map = {landmark.landmark_id: landmark for landmark in landmarks}
+    routine_rng = random.Random(seed + 20_000)
+    agents = list(simulation.agents.values())
+
+    # Keep the familiar office-worker/student routine types, but place them
+    # in individual village buildings and give both a shared café destination
+    # so a later interaction system has a natural meeting point.
+    homes = (landmark_map["house_a"].position, landmark_map["house_b"].position)
+    for index, agent in enumerate(agents):
+        profile = _build_profile(
+            index,
+            homes[index],
+            landmark_map["town_hall"].position,
+            landmark_map["schoolhouse"].position,
+            landmark_map["schoolhouse"].position,
+            landmark_map["market"].position,
+            landmark_map["park"].position,
+            landmark_map["cafe"].position,
+            landmark_map["park"].position,
+            landmark_map["cafe"].position,
+            TransportMode.WALK,
+        )
+        profile = replace(
+            profile,
+            leisure_position=landmark_map["cafe"].position,
+            routine=tuple(
+                replace(
+                    entry,
+                    target_position=(
+                        landmark_map["cafe"].position
+                        if entry.activity in {ActivityType.LEISURE, ActivityType.SOCIAL}
+                        else entry.target_position
+                    ),
+                )
+                for entry in _vary_routine(profile.routine, routine_rng)
+            ),
+        )
+        agent.profile = profile
+        agent.transport_mode = TransportMode.WALK
+        agent.position = homes[index]
+        first = profile.routine[0]
+        agent.current_activity = first.activity
+        agent.asleep = True
+        agent.goal = Goal(
+            goal_id=f"goal-{index + 1:04d}",
+            description=first.description,
+            target_position=first.target_position,
+            importance=first.importance,
+        )
+
+    # The two residents know each other. The interaction mechanism can later
+    # decide when proximity becomes an actual conversation or encounter.
+    first_id, second_id = agents[0].agent_id, agents[1].agent_id
+    agents[0].social_connections.add(second_id)
+    agents[1].social_connections.add(first_id)
+    agents[0].relationships[second_id] = 0.50
+    agents[1].relationships[first_id] = 0.50
+
+    return BaselineScenario(
+        simulation=simulation,
+        landmarks=landmarks,
+        roads=roads,
+    )
+
+
 def create_baseline_scenario(
     agent_count: int = 30,
     seed: int = 42,
