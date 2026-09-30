@@ -149,6 +149,11 @@ def _build_profile(
         )
         work = office
 
+    transport_mode = (
+        TransportMode.CAR
+        if index % 5 in (0, 1)
+        else TransportMode.WALK
+    )
     return AgentProfile(
         name=NAMES[index % len(NAMES)],
         occupation=occupation,
@@ -156,6 +161,7 @@ def _build_profile(
         work_position=work,
         leisure_position=leisure,
         social_preference=social_preference,
+        transport_mode=transport_mode,
         routine=routine,
     )
 
@@ -229,11 +235,7 @@ def create_baseline_scenario(
             landmark_map["station"].position,
         )
         agent.profile = profile
-        agent.transport_mode = (
-            TransportMode.CAR
-            if index % 5 in (0, 1)
-            else TransportMode.WALK
-        )
+        agent.transport_mode = profile.transport_mode
         agent.position = home
         first_routine = profile.routine[0]
         agent.current_activity = first_routine.activity
