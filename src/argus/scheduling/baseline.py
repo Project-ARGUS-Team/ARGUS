@@ -7,6 +7,7 @@ from uuid import uuid4
 from argus.llm.gateway import LLMGateway
 from argus.scheduling.relevance import IRelevanceScorer
 from argus.simulation.simulation import Simulation
+from argus.simulation.agent import ActionType
 from argus.telemetry.models import CognitiveUpdateEvent, RelevanceScoreRecord
 from argus.telemetry.repository import TelemetryRepository
 
@@ -79,8 +80,55 @@ class BaselineScheduler:
                         )
                     )
 
+            previous_action = agent.current_action
+            previous_target = (
+                previous_action.target_agent_id
+                if previous_action is not None
+                and previous_action.action_type == ActionType.INTERACT
+                else None
+            )
             self.simulation.request_cognitive_update(agent.agent_id, self.gateway)
             updates += 1
+
+            current_action = agent.current_action
+            if (
+                current_action is not None
+                and current_action.action_type == ActionType.INTERACT
+                and current_action.target_agent_id is not None
+            ):
+                target_id = current_action.target_agent_id
+                if target_id in self.simulation.agents:
+                    target = self.simulation.agents[target_id]
+                    self.simulation.register_interaction(
+                        agent.agent_id,
+                        target_id,
+                        positive=True,
+                    )
+                    self.simulation.register_interaction(
+                        target_id,
+                        agent.agent_id,
+                        positive=True,
+                    )
+                    self.simulation.add_memory(
+                        agent.agent_id,
+                        kind="interaction",
+                        summary=(
+                            f"Met {target.profile.name if target.profile else target_id} "
+                            f"during {agent.current_activity.value}."
+                        ),
+                        importance=0.75,
+                        related_agent_ids=(target_id,),
+                    )
+                    self.simulation.add_memory(
+                        target_id,
+                        kind="interaction",
+                        summary=(
+                            f"Met {agent.profile.name if agent.profile else agent.agent_id} "
+                            f"during {target.current_activity.value}."
+                        ),
+                        importance=0.75,
+                        related_agent_ids=(agent.agent_id,),
+                    )
 
             if self.telemetry is not None:
                 self.telemetry.record_cognitive_update(
@@ -93,6 +141,10 @@ class BaselineScheduler:
                 )
 
         self.simulation.tick()
+
+        if self.simulation.current_tick > 0 and self.simulation.current_tick % 720 == 0:
+            self.simulation.end_of_day_reflection()
+
         self.total_cognitive_updates += updates
         return updates
 
