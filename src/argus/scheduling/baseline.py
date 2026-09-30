@@ -31,6 +31,43 @@ class BaselineScheduler:
         self.total_cognitive_updates = 0
         self._run_started = False
 
+    def _record_thought(self, agent, previous_action, previous_activity) -> None:
+        """Record a new concise explanation when an agent changes course."""
+        action = agent.current_action
+        if action is None:
+            return
+        previous_type = previous_action.action_type if previous_action else None
+        target_changed = (
+            previous_action is not None
+            and previous_action.target_agent_id != action.target_agent_id
+        )
+        meaningful_change = (
+            previous_action is None
+            or action.action_type != previous_type
+            or target_changed
+            or agent.current_activity != previous_activity
+        )
+        if not meaningful_change:
+            return
+        target_name = None
+        if action.target_agent_id in self.simulation.agents:
+            target = self.simulation.agents[action.target_agent_id]
+            target_name = target.profile.name if target.profile else action.target_agent_id
+        if action.action_type == ActionType.MOVE:
+            if agent.current_activity == ActivityType.COMMUTE:
+                thought = f"I need to continue my trip because {agent.goal.description.lower()}."
+            else:
+                thought = f"I should head out because {agent.goal.description.lower()}."
+        elif action.action_type == ActionType.WAIT:
+            if agent.current_activity == ActivityType.HOME:
+                thought = "I'm home, so I'll stay here and rest for now."
+            else:
+                thought = f"I've arrived, so I'll spend this time on {agent.current_activity.value}."
+        elif action.action_type == ActionType.INTERACT and target_name is not None:
+            thought = f"I want to talk with {target_name} while we're both here."
+        else:
+            thought = "Something needs my attention, so I'm responding to it."
+        agent.add_thought(self.simulation.current_tick, thought)
     @property
     def current_tick(self) -> int:
         """Return the simulation tick managed by this scheduler."""
@@ -81,60 +118,35 @@ class BaselineScheduler:
                     )
 
             previous_action = agent.current_action
-            previous_target = (
-                previous_action.target_agent_id
-                if previous_action is not None
-                and previous_action.action_type == ActionType.INTERACT
-                else None
-            )
             previous_activity = agent.current_activity
             self.simulation.request_cognitive_update(agent.agent_id, self.gateway)
             updates += 1
+            self._record_thought(agent, previous_action, previous_activity)
 
             current_action = agent.current_action
-            if (
+            started_interaction = (
                 current_action is not None
                 and current_action.action_type == ActionType.INTERACT
                 and current_action.target_agent_id is not None
-            ):
+                and (
+                    previous_action is None
+                    or previous_action.action_type != ActionType.INTERACT
+                    or previous_action.target_agent_id != current_action.target_agent_id
+                )
+            )
+            if started_interaction:
                 target_id = current_action.target_agent_id
                 if target_id in self.simulation.agents:
-                    target = self.simulation.agents[target_id]
-                    self.simulation.register_interaction(
-                        agent.agent_id,
-                        target_id,
-                        positive=True,
-                    )
-                    self.simulation.register_interaction(
-                        target_id,
-                        agent.agent_id,
-                        positive=True,
-                    )
-                    self.simulation.add_memory(
-                        agent.agent_id,
-                        kind="interaction",
-                        summary=(
-                            f"Met {target.profile.name if target.profile else target_id} "
-                            f"during {agent.current_activity.value}."
-                        ),
-                        importance=0.75,
-                        related_agent_ids=(target_id,),
-                    )
-                    self.simulation.add_memory(
-                        target_id,
-                        kind="interaction",
-                        summary=(
-                            f"Met {agent.profile.name if agent.profile else agent.agent_id} "
-                            f"during {target.current_activity.value}."
-                        ),
-                        importance=0.75,
-                        related_agent_ids=(agent.agent_id,),
-                    )
+                    self.simulation.record_conversation(agent.agent_id, target_id)
 
             if (
                 current_action is not None
                 and current_action.action_type == ActionType.WAIT
                 and agent.current_activity != ActivityType.HOME
+                and (
+                    previous_action is None
+                    or previous_action.action_type != ActionType.WAIT
+                )
             ):
                 self.simulation.add_memory(
                     agent.agent_id,
