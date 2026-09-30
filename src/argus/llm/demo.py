@@ -303,32 +303,17 @@ class ScenarioLLMProvider:
                     if context.transport_mode == "car"
                     else ()
                 )
-                # Keep following the current road waypoint until it is
-                # reached. Recomputing the nearest graph node every tick can
-                # make an agent flip between two junctions while it is
-                # between them.
-                current_target = (
-                    context.current_action.target_position
-                    if context.current_action is not None
-                    and context.current_action.action_type == ActionType.MOVE
-                    else None
+                # The committed route cache is the source of truth for
+                # intermediate road waypoints. Do not preserve the previous
+                # action target based on geometric closeness: at a junction,
+                # that can keep an agent following the wrong branch.
+                target = self._road_waypoint(
+                    context.position,
+                    trip_destination,
+                    context.agent_id,
+                    blocked,
+                    context.transport_mode == "car",
                 )
-                if (
-                    current_target is not None
-                    and self._distance(context.position, current_target)
-                    > self.arrival_radius
-                    and self._distance(current_target, trip_destination)
-                    < self._distance(context.position, trip_destination)
-                ):
-                    target = current_target
-                else:
-                    target = self._road_waypoint(
-                        context.position,
-                        trip_destination,
-                        context.agent_id,
-                        blocked,
-                        context.transport_mode == "car",
-                    )
                 trip_goal = type(goal)(
                     goal_id=(
                         f"{context.agent_id}-"
@@ -389,30 +374,15 @@ class ScenarioLLMProvider:
                     ),
                 )
 
-            current_target = (
-                context.current_action.target_position
-                if context.current_action is not None
-                and context.current_action.action_type == ActionType.MOVE
-                else None
+            target = self._road_waypoint(
+                context.position,
+                routine.target_position,
+                context.agent_id,
+                context.closed_road_ids
+                if context.transport_mode == "car"
+                else (),
+                context.transport_mode == "car",
             )
-            if (
-                current_target is not None
-                and self._distance(context.position, current_target)
-                    > self.arrival_radius
-                and self._distance(current_target, routine.target_position)
-                    < self._distance(context.position, routine.target_position)
-            ):
-                target = current_target
-            else:
-                target = self._road_waypoint(
-                    context.position,
-                    routine.target_position,
-                    context.agent_id,
-                    context.closed_road_ids
-                    if context.transport_mode == "car"
-                    else (),
-                    context.transport_mode == "car",
-                )
             return StateDelta(
                 goal=goal,
                 activity=activity,
