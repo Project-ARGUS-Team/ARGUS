@@ -271,9 +271,7 @@ class SimulationViewer:
             f"  importance: {agent.goal.importance:.2f}\n\n"
             f"SOCIAL\n"
             f"  connections: {len(agent.social_connections)}\n"
-            f"  nearby: {nearby_count}\n\n"
-            f"EVENTS\n"
-            f"  {', '.join(active_events) if active_events else 'None'}"
+            f"  nearby: {nearby_count}"
         )
         self.agent_info.config(text=text)
 
