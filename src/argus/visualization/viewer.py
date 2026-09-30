@@ -8,7 +8,7 @@ import tkinter as tk
 from argus.llm.demo import ScenarioLLMProvider
 from argus.scheduling.baseline import BaselineScheduler
 from argus.simulation.agent import ActionType
-from argus.simulation.scenario import BaselineScenario, create_baseline_scenario, create_interaction_scenario
+from argus.simulation.scenario import BaselineScenario, create_interaction_scenario
 
 
 class SimulationViewer:
@@ -28,12 +28,18 @@ class SimulationViewer:
 
         self.root = tk.Tk()
         self.root.title("ARGUS — Baseline Simulation")
+        self.root.minsize(900, 600)
 
-        main = tk.Frame(self.root)
+        main = tk.PanedWindow(
+            self.root,
+            orient=tk.HORIZONTAL,
+            sashrelief=tk.RAISED,
+            sashwidth=6,
+        )
         main.pack(fill=tk.BOTH, expand=True)
 
         map_frame = tk.Frame(main)
-        map_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        map_frame.pack(fill=tk.BOTH, expand=True)
 
         width = int(self.simulation.world.width * self.scale)
         height = int(self.simulation.world.height * self.scale)
@@ -44,12 +50,14 @@ class SimulationViewer:
             background="#111827",
             highlightthickness=0,
         )
-        self.canvas.pack()
+        self.canvas.pack(fill=tk.BOTH, expand=True)
         self.canvas.bind("<Button-1>", self._on_canvas_click)
 
-        inspector = tk.Frame(main, width=310, padx=12, pady=12)
-        inspector.pack(side=tk.RIGHT, fill=tk.Y)
+        inspector = tk.Frame(main, width=340, padx=12, pady=12)
+        inspector.pack(fill=tk.BOTH, expand=True)
         inspector.pack_propagate(False)
+        main.add(map_frame, stretch="always", minsize=500)
+        main.add(inspector, minsize=280)
 
         tk.Label(
             inspector,
@@ -62,6 +70,7 @@ class SimulationViewer:
             text="Click an agent to inspect it.",
             justify=tk.LEFT,
             anchor=tk.NW,
+            wraplength=310,
         )
         self.agent_info.pack(fill=tk.X, pady=(10, 12))
 
@@ -71,15 +80,27 @@ class SimulationViewer:
             font=("TkDefaultFont", 10, "bold"),
         ).pack(anchor=tk.W)
 
-        self.thoughts_box = tk.Listbox(
-            inspector,
+        thoughts_frame = tk.Frame(inspector)
+        thoughts_frame.pack(fill=tk.BOTH, expand=True, pady=(6, 12))
+
+        self.thoughts_box = tk.Text(
+            thoughts_frame,
             height=9,
-            activestyle="none",
-            exportselection=False,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
             relief=tk.FLAT,
             borderwidth=0,
+            padx=2,
+            pady=2,
         )
-        self.thoughts_box.pack(fill=tk.X, pady=(6, 16))
+        thoughts_scroll = tk.Scrollbar(
+            thoughts_frame,
+            orient=tk.VERTICAL,
+            command=self.thoughts_box.yview,
+        )
+        self.thoughts_box.configure(yscrollcommand=thoughts_scroll.set)
+        self.thoughts_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        thoughts_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         tk.Label(
             inspector,
@@ -92,6 +113,7 @@ class SimulationViewer:
             text="",
             justify=tk.LEFT,
             anchor=tk.NW,
+            wraplength=310,
         )
         self.status.pack(fill=tk.X, pady=(8, 12))
 
@@ -131,7 +153,6 @@ class SimulationViewer:
             text="Reset",
             command=self.reset,
         ).pack(side=tk.LEFT, fill=tk.X, expand=True)
-
 
         self._draw()
 
@@ -237,15 +258,16 @@ class SimulationViewer:
     def _draw_agent_inspector(self) -> None:
         if self.selected_agent_id is None:
             self.agent_info.config(text="Click an agent to inspect it.")
+            self._set_thoughts(["Select an agent to see its recent decisions."])
             return
 
         agent = self.simulation.agents.get(self.selected_agent_id)
         if agent is None:
             self.agent_info.config(text="Agent no longer exists.")
+            self._set_thoughts(["Agent no longer exists."])
             return
 
         action = agent.current_action
-        target = action.target_position if action else None
         nearby_count = 0
         for other in self.simulation.agents.values():
             if other.agent_id == agent.agent_id or not other.active:
@@ -270,38 +292,64 @@ class SimulationViewer:
         )
 
         text = (
-            f"{display_name}\n"
-            f"{occupation}\n\n"
-            f"WORKPLACE\n"
-            f"  {work_destination}\n\n"
-            f"POSITION\n"
-            f"  ({agent.position.x:.1f}, {agent.position.y:.1f})\n"
-            f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})\n\n"
-            f"ACTION\n"
-            f"  {self._action_label(action)}\n"
-            f"  target: {current_destination}\n\n"
-            f"ACTIVITY\n"
-            f"  {agent.current_activity.value.upper()}\n\n"
-            f"GOAL\n"
-            f"  {agent.goal.description}\n"
-            f"  importance: {agent.goal.importance:.2f}\n\n"
-            f"SOCIAL\n"
-            f"  connections: {len(agent.social_connections)}\n"
+            f"{display_name}
+"
+            f"{occupation}
+
+"
+            f"WORKPLACE
+"
+            f"  {work_destination}
+
+"
+            f"POSITION
+"
+            f"  ({agent.position.x:.1f}, {agent.position.y:.1f})
+"
+            f"  velocity ({agent.velocity.x:.1f}, {agent.velocity.y:.1f})
+
+"
+            f"ACTION
+"
+            f"  {self._action_label(action)}
+"
+            f"  target: {current_destination}
+
+"
+            f"ACTIVITY
+"
+            f"  {agent.current_activity.value.upper()}
+
+"
+            f"GOAL
+"
+            f"  {agent.goal.description}
+"
+            f"  importance: {agent.goal.importance:.2f}
+
+"
+            f"SOCIAL
+"
+            f"  connections: {len(agent.social_connections)}
+"
             f"  nearby: {nearby_count}"
         )
         self.agent_info.config(text=text)
 
-        self.thoughts_box.delete(0, tk.END)
-        if agent.thoughts:
-            for thought in reversed(agent.thoughts[-9:]):
-                minutes = (6 * 60 + (thought.tick % 720) * 2) % (24 * 60)
-                timestamp = f"{minutes // 60:02d}:{minutes % 60:02d}"
-                self.thoughts_box.insert(
-                    tk.END,
-                    f"{timestamp}  {thought.summary}",
-                )
-        else:
-            self.thoughts_box.insert(tk.END, "No decisions recorded yet.")
+        thought_lines = []
+        for thought in reversed(agent.thoughts[-9:]):
+            minutes = (6 * 60 + (thought.tick % 720) * 2) % (24 * 60)
+            timestamp = f"{minutes // 60:02d}:{minutes % 60:02d}"
+            thought_lines.append(f"{timestamp}  {thought.summary}")
+        self._set_thoughts(thought_lines or ["No decisions recorded yet."])
+
+    def _set_thoughts(self, lines: list[str]) -> None:
+        """Replace the wrapped thought history without allowing edits."""
+        self.thoughts_box.config(state=tk.NORMAL)
+        self.thoughts_box.delete("1.0", tk.END)
+        self.thoughts_box.insert("1.0", "
+".join(f"• {line}" for line in lines))
+        self.thoughts_box.config(state=tk.DISABLED)
 
     def _time_of_day(self) -> str:
         """Convert the 720-tick simulation day into a readable clock."""
@@ -439,17 +487,19 @@ class SimulationViewer:
 
         self._draw_agent_inspector()
 
-
         self.status.config(
             text=(
-                f"Tick {current_tick}\n"
-                f"Time of day {self._time_of_day()}\n"
-                f"Simulation {self.simulation.simulation_time:.0f}s\n"
-                f"Agents {len(self.simulation.agents)}\n"
+                f"Tick {current_tick}
+"
+                f"Time of day {self._time_of_day()}
+"
+                f"Simulation {self.simulation.simulation_time:.0f}s
+"
+                f"Agents {len(self.simulation.agents)}
+"
                 f"Cognitive updates {self.scheduler.total_cognitive_updates}"
             )
         )
-
 
     def step(self) -> None:
         """Run one full-frequency cognitive baseline tick and redraw."""
