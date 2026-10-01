@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from urllib import request
 from dataclasses import dataclass
 from typing import Protocol
+from urllib import request
 
 from argus.simulation.agent import AgentState, MemoryRecord
 
@@ -31,11 +31,7 @@ class MemoryCognitionProvider(Protocol):
 
 
 class OllamaMemoryProvider:
-    """Use a local Ollama model to create structured episodic memories.
-
-    The provider is deliberately separate from the main LLM gateway: Qwen
-    cannot directly change authoritative simulation state.
-    """
+    """Use a local Ollama model to create structured episodic memories."""
 
     def __init__(
         self,
@@ -63,6 +59,7 @@ class OllamaMemoryProvider:
             if profile is not None
             else f"Agent ID: {agent.agent_id}"
         )
+        valid_agent_ids = set(agent.relationships)
         experience_lines = "\n".join(
             f"- [{memory.kind}] {memory.summary}"
             for memory in memories[-20:]
@@ -80,7 +77,7 @@ Return JSON only in this exact shape:
 {{
   "memories": [
     {{
-      "summary": "short first-person or third-person memory",
+      "summary": "short memory",
       "importance": 0.0,
       "related_agent_ids": ["agent-0001"]
     }}
@@ -120,39 +117,63 @@ Experiences:
 
         content = raw.get("response", "")
         parsed = json.loads(content)
-        candidates = []
+        candidates: list[MemoryCandidate] = []
+
         for item in parsed.get("memories", []):
             if not isinstance(item, dict):
                 continue
+
             summary = str(item.get("summary", "")).strip()
             if not summary:
                 continue
-            importance = max(0.0, min(1.0, float(item.get("importance", 0.5))))
+
+            try:
+                importance = float(item.get("importance", 0.5))
+            except (TypeError, ValueError):
+                importance = 0.5
+
+            importance = max(0.0, min(1.0, importance))
+            raw_related = item.get("related_agent_ids", [])
+            if not isinstance(raw_related, list):
+                raw_related = []
+
             related = tuple(
                 agent_id
-                for agent_id in item.get("related_agent_ids", [])
+                for agent_id in raw_related
                 if isinstance(agent_id, str)
-                and agent_id in agent.relationships
+                and agent_id in valid_agent_ids
             )
+
             candidates.append(
                 MemoryCandidate(
-                    summary=summary,
+                    summary=summary[:200],
                     importance=importance,
                     related_agent_ids=related,
                 )
             )
+
         return tuple(candidates[:3])
 
 
 class MemoryManager:
-    """Apply model-generated memories while keeping the simulation authoritative."""
+    """Create persistent daily memories with an optional deterministic fallback."""
 
-    def __init__(self, provider: MemoryCognitionProvider) -> None:
+    def __init__(
+        self,
+        provider: MemoryCognitionProvider,
+        fallback: MemoryCognitionProvider | None = None,
+    ) -> None:
         self.provider = provider
+        self.fallback = fallback
 
     def summarize_day(
         self,
         agent: AgentState,
         memories: tuple[MemoryRecord, ...],
     ) -> tuple[MemoryCandidate, ...]:
-        return self.provider.summarize_day(agent, memories)
+        try:
+            return self.provider.summarize_day(agent, memories)
+        except Exception:
+            if self.fallback is None:
+                raise
+            return self.fallback.summarize_day(agent, memories)
