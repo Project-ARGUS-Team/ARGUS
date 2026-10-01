@@ -36,7 +36,7 @@ class OllamaConversationProvider:
 
     def __init__(
         self,
-        model: str = "qwen2.5-coder:7b-instruct",
+        model: str = "qwen2.5-coder:7b",
         base_url: str = "http://localhost:11434",
         timeout: float = 30.0,
     ) -> None:
