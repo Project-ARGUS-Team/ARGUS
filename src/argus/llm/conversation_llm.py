@@ -48,6 +48,7 @@ class OllamaConversationProvider:
         self,
         speaker: AgentState,
         listener: AgentState,
+        recent_topics: tuple[str, ...] = (),
     ) -> ConversationCandidate:
         self.call_count += 1
         speaker_name = speaker.profile.name if speaker.profile else speaker.agent_id
