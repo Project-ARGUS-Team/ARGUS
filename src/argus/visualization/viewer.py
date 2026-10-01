@@ -53,19 +53,66 @@ class SimulationViewer:
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self.canvas.bind("<Button-1>", self._on_canvas_click)
 
-        inspector = tk.Frame(main, width=340, padx=12, pady=12)
+        inspector = tk.Frame(main, width=340)
         inspector.pack_propagate(False)
         main.add(map_frame, stretch="always", minsize=500)
         main.add(inspector, minsize=280)
 
-        tk.Label(
+        inspector_canvas = tk.Canvas(
             inspector,
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        inspector_scroll = tk.Scrollbar(
+            inspector,
+            orient=tk.VERTICAL,
+            command=inspector_canvas.yview,
+        )
+        inspector_content = tk.Frame(
+            inspector_canvas,
+            padx=12,
+            pady=12,
+        )
+        inspector_window = inspector_canvas.create_window(
+            (0, 0),
+            window=inspector_content,
+            anchor=tk.NW,
+        )
+
+        inspector_canvas.configure(yscrollcommand=inspector_scroll.set)
+        inspector_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        inspector_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def update_inspector_scrollregion(_event=None) -> None:
+            inspector_canvas.configure(
+                scrollregion=inspector_canvas.bbox("all")
+            )
+
+        def resize_inspector_content(event) -> None:
+            inspector_canvas.itemconfigure(
+                inspector_window,
+                width=event.width,
+            )
+
+        inspector_content.bind("<Configure>", update_inspector_scrollregion)
+        inspector_canvas.bind("<Configure>", resize_inspector_content)
+
+        def scroll_inspector(event) -> None:
+            inspector_canvas.yview_scroll(
+                int(-event.delta / 120),
+                "units",
+            )
+
+        inspector_canvas.bind("<MouseWheel>", scroll_inspector)
+
+        tk.Label(
+            inspector_content,
             text="AGENT INSPECTOR",
             font=("TkDefaultFont", 12, "bold"),
         ).pack(anchor=tk.W)
 
         self.agent_info = tk.Label(
-            inspector,
+            inspector_content,
             text="Click an agent to inspect it.",
             justify=tk.LEFT,
             anchor=tk.NW,
@@ -74,12 +121,12 @@ class SimulationViewer:
         self.agent_info.pack(fill=tk.X, pady=(10, 12))
 
         tk.Label(
-            inspector,
+            inspector_content,
             text="TIMELINE",
             font=("TkDefaultFont", 10, "bold"),
         ).pack(anchor=tk.W)
 
-        thoughts_frame = tk.Frame(inspector)
+        thoughts_frame = tk.Frame(inspector_content)
         thoughts_frame.pack(fill=tk.BOTH, expand=True, pady=(6, 12))
 
         self.thoughts_box = tk.Text(
@@ -102,13 +149,13 @@ class SimulationViewer:
         thoughts_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         tk.Label(
-            inspector,
+            inspector_content,
             text="SIMULATION",
             font=("TkDefaultFont", 10, "bold"),
         ).pack(anchor=tk.W)
 
         self.status = tk.Label(
-            inspector,
+            inspector_content,
             text="",
             justify=tk.LEFT,
             anchor=tk.NW,
@@ -117,16 +164,16 @@ class SimulationViewer:
         self.status.pack(fill=tk.X, pady=(8, 12))
 
         tk.Label(
-            inspector,
+            inspector_content,
             text="SPEED",
             font=("TkDefaultFont", 10, "bold"),
         ).pack(anchor=tk.W)
 
-        self.speed_label = tk.Label(inspector, text="1.00×")
+        self.speed_label = tk.Label(inspector_content, text="1.00×")
         self.speed_label.pack(anchor=tk.W)
 
         self.speed_scale = tk.Scale(
-            inspector,
+            inspector_content,
             from_=0.25,
             to=4.0,
             resolution=0.25,
@@ -136,7 +183,7 @@ class SimulationViewer:
         self.speed_scale.set(self.speed)
         self.speed_scale.pack(fill=tk.X)
 
-        controls = tk.Frame(inspector)
+        controls = tk.Frame(inspector_content)
         controls.pack(fill=tk.X, pady=(8, 12))
         tk.Button(controls, text="Play", command=self.play).pack(
             side=tk.LEFT, fill=tk.X, expand=True
