@@ -64,23 +64,28 @@ class OllamaConversationProvider:
 Speaker: {speaker_name}, {speaker_job}
 Listener: {listener_name}, {listener_job}
 
-Recent topics between these residents: {topic_history}
+Previous conversation memories:
+{conversation_history}
 
 Return JSON only:
 {{
   "topic": "short topic",
-  "summary": "one short third-person sentence describing what they talked about"
+  "summary": "one short third-person sentence describing the actual information exchanged"
 }}
 
 Rules:
 - Use only ordinary everyday topics: work, study, food, commute, weekend plans,
   hobbies, local news, family plans, errands, or the local community.
-- Avoid topics already listed in Recent topics unless there is a clear reason to revisit them.
-- Prefer a different topic when several ordinary topics are available.
-- Do not invent specific facts about their lives beyond their occupations.
-- Keep topic under 8 words.
-- Keep summary under 20 words.
+- Treat previous conversation memories as persistent context and build naturally on them.
+- If a previous memory contains a plan, preference, question, or detail, reference it
+  when it makes sense instead of starting from scratch.
+- Avoid repeating the same topic unless the new conversation clearly follows up on it.
+- The summary should describe one concrete piece of information, plan, preference,
+  question, or follow-up from the conversation, not merely name the topic.
+- Keep the summary as one short third-person sentence, under 25 words.
 - Do not include dialogue or quotation marks.
+- The conversation is simulated, so you may create plausible everyday details, but
+  they must remain consistent with the agents' known profiles and previous memories.
 """
 
         payload = {
