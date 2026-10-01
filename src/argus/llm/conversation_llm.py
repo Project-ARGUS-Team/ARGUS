@@ -25,6 +25,7 @@ class ConversationCognitionProvider(Protocol):
         self,
         speaker: AgentState,
         listener: AgentState,
+        recent_topics: tuple[str, ...] = (),
     ) -> ConversationCandidate:
         """Generate a conversation summary."""
 
@@ -53,11 +54,14 @@ class OllamaConversationProvider:
         listener_name = listener.profile.name if listener.profile else listener.agent_id
         speaker_job = speaker.profile.occupation if speaker.profile else "resident"
         listener_job = listener.profile.occupation if listener.profile else "resident"
+        topic_history = ", ".join(recent_topics) if recent_topics else "none"
 
         prompt = f"""You are generating one brief conversation for a simulated town.
 
 Speaker: {speaker_name}, {speaker_job}
 Listener: {listener_name}, {listener_job}
+
+Recent topics between these residents: {topic_history}
 
 Return JSON only:
 {{
@@ -68,6 +72,8 @@ Return JSON only:
 Rules:
 - Use only ordinary everyday topics: work, study, food, commute, weekend plans,
   hobbies, local news, family plans, errands, or the local community.
+- Avoid topics already listed in Recent topics unless there is a clear reason to revisit them.
+- Prefer a different topic when several ordinary topics are available.
 - Do not invent specific facts about their lives beyond their occupations.
 - Keep topic under 8 words.
 - Keep summary under 20 words.
