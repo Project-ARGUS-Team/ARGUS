@@ -36,6 +36,7 @@ class BaselineScheduler:
         self.conversation_provider = conversation_provider
         self.total_cognitive_updates = 0
         self._run_started = False
+        self.last_conversation_debug: dict[str, object] = {}
 
     def _record_thought(self, agent, previous_action, previous_activity) -> None:
         """Record a concise third-person explanation when an agent changes course."""
@@ -181,10 +182,33 @@ class BaselineScheduler:
                                 target,
                                 recent_topics=recent_context,
                             )
-                        except Exception:
+                        except Exception as exc:
+                            self.last_conversation_debug = {
+                                "status": "fallback",
+                                "speaker": agent.profile.name if agent.profile else agent.agent_id,
+                                "listener": target.profile.name if target.profile else target_id,
+                                "error": f"{type(exc).__name__}: {exc}",
+                                "provider_debug": getattr(
+                                    self.conversation_provider,
+                                    "last_debug",
+                                    {},
+                                ),
+                            }
                             conversation = None
 
                         if conversation is not None:
+                            self.last_conversation_debug = {
+                                "status": "llm",
+                                "speaker": agent.profile.name if agent.profile else agent.agent_id,
+                                "listener": target.profile.name if target.profile else target_id,
+                                "topic": conversation.topic,
+                                "summary": conversation.summary,
+                                "provider_debug": getattr(
+                                    self.conversation_provider,
+                                    "last_debug",
+                                    {},
+                                ),
+                            }
                             self.simulation.add_memory(
                                 agent.agent_id,
                                 kind="conversation",
