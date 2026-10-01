@@ -161,15 +161,25 @@ class BaselineScheduler:
                     if self.conversation_provider is not None:
                         target = self.simulation.agents[target_id]
                         try:
-                            recent_topics = tuple(
-                                memory.summary.split("about ", 1)[-1].split(":", 1)[0]
-                                for memory in agent.memories[-8:]
+                            recent_conversations = tuple(
+                                memory.summary
+                                for memory in agent.memories
                                 if memory.kind == "conversation"
-                            )
+                            )[-4:]
+                            target_recent_conversations = tuple(
+                                memory.summary
+                                for memory in target.memories
+                                if memory.kind == "conversation"
+                            )[-4:]
+                            recent_context = tuple(
+                                dict.fromkeys(
+                                    recent_conversations + target_recent_conversations
+                                )
+                            )[-6:]
                             conversation = self.conversation_provider.generate(
                                 agent,
                                 target,
-                                recent_topics=recent_topics,
+                                recent_topics=recent_context,
                             )
                         except Exception:
                             conversation = None
@@ -197,10 +207,7 @@ class BaselineScheduler:
                             )
                             agent_name = agent.profile.name if agent.profile else agent.agent_id
                             target_name = target.profile.name if target.profile else target_id
-                            timeline = (
-                                f"{agent_name} talks with {target_name} "
-                                f"about {conversation.topic}."
-                            )
+                            timeline = conversation.summary
                             agent.add_thought(self.simulation.current_tick, timeline)
                             target.add_thought(self.simulation.current_tick, timeline)
                         else:
