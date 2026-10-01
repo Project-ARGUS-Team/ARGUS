@@ -183,6 +183,7 @@ class BaselineScheduler:
                                 recent_topics=recent_context,
                             )
                         except Exception as exc:
+                            print(f"[ARGUS CONVERSATION ERROR] scheduler caught {type(exc).__name__}: {exc}", flush=True)
                             self.last_conversation_debug = {
                                 "status": "fallback",
                                 "speaker": agent.profile.name if agent.profile else agent.agent_id,
@@ -197,6 +198,7 @@ class BaselineScheduler:
                             conversation = None
 
                         if conversation is not None:
+                            print(f"[ARGUS CONVERSATION] scheduler accepted LLM result: {conversation.summary!r}", flush=True)
                             self.last_conversation_debug = {
                                 "status": "llm",
                                 "speaker": agent.profile.name if agent.profile else agent.agent_id,
@@ -238,6 +240,7 @@ class BaselineScheduler:
                                 target_id,
                             )
                             if fallback is not None:
+                                print(f"[ARGUS CONVERSATION] deterministic fallback: {fallback.opening!r}", flush=True)
                                 timeline = fallback.opening
                                 agent.add_thought(
                                     self.simulation.current_tick,
