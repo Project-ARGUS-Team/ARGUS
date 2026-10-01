@@ -287,7 +287,14 @@ class ScenarioLLMProvider:
         # the probability upward.
         chance = 0.0008 + proximity * 0.0035
         chance *= 0.75 + context.profile.social_preference * 0.50
-        chance *= 0.90 + relationship * 0.20
+        remembered_contacts = {
+            related_id
+            for memory in context.memories
+            if memory.kind in {"conversation", "reflection"}
+            for related_id in memory.related_agent_ids
+        }
+        if nearby.agent_id in remembered_contacts:
+            chance *= 1.75
 
         if rng.random() >= min(0.012, chance):
             return None
@@ -364,25 +371,8 @@ class ScenarioLLMProvider:
         if interaction is not None:
             return interaction
 
-        # Persistent memories can bias the next day toward places and people
-        # that mattered previously, approximating Smallville-style retrieval.
-        remembered_contacts = {
-            related_id
-            for memory in context.memories
-            if memory.kind in {"interaction", "reflection"}
-            for related_id in memory.related_agent_ids
-        }
-        preferred_social_id = next(
-            (
-                item.agent_id
-                for item in sorted(
-                    context.nearby_agents,
-                    key=lambda item: item.distance,
-                )
-                if item.agent_id in remembered_contacts
-            ),
-            None,
-        )
+        # Retrieved episodic memories are already considered by the social
+        # interaction model above; routine behavior remains otherwise unchanged.
 
         routine = context.current_routine
 
