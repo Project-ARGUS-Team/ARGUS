@@ -39,7 +39,7 @@ class MemoryRetriever:
 
         query_tokens = self._tokens(query)
         related = set(related_agent_ids)
-        max_tick = max(memory.tick for memory in memories)
+        max_tick = max(current_tick, max(memory.tick for memory in memories))
 
         scored: list[tuple[float, int, MemoryRecord]] = []
         for index, memory in enumerate(memories):
