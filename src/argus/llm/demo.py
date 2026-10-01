@@ -282,10 +282,9 @@ class ScenarioLLMProvider:
         nearby = rng.choice(candidates)
         relationship = dict(context.relationship_strengths).get(nearby.agent_id, 0.5)
         proximity = max(0.0, 1.0 - nearby.distance / self.social_radius)
-        # Encounters are deliberately rare. An agent can pass another person
-        # many times without starting a conversation; proximity only nudges
-        # the probability upward.
-        chance = 0.0008 + proximity * 0.0035
+        # Demo/test interaction rate: deliberately much higher than a
+        # realistic social encounter rate so interactions are easy to observe.
+        chance = 0.08 + proximity * 0.32
         chance *= 0.75 + context.profile.social_preference * 0.50
         remembered_contacts = {
             related_id
@@ -296,7 +295,7 @@ class ScenarioLLMProvider:
         if nearby.agent_id in remembered_contacts:
             chance *= 1.75
 
-        if rng.random() >= min(0.012, chance):
+        if rng.random() >= min(0.40, chance):
             return None
 
         return StateDelta(
