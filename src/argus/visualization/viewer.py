@@ -468,6 +468,16 @@ class SimulationViewer:
 
         self._draw_agent_inspector()
 
+        debug = getattr(self.scheduler, "last_conversation_debug", {})
+        debug_line = ""
+        if debug:
+            debug_line = (
+                f"\nConversation: {debug.get('status', 'unknown')} "
+                f"({debug.get('speaker', '?')} -> {debug.get('listener', '?')})"
+            )
+            if debug.get("error"):
+                debug_line += f"\nError: {debug['error']}"
+
         self.status.config(
             text=(
                 f"Tick {current_tick}\n"
@@ -475,6 +485,7 @@ class SimulationViewer:
                 f"Simulation {self.simulation.simulation_time:.0f}s\n"
                 f"Agents {len(self.simulation.agents)}\n"
                 f"Cognitive updates {self.scheduler.total_cognitive_updates}"
+                f"{debug_line}"
             )
         )
 
