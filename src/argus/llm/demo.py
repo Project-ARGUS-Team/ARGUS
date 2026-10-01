@@ -215,9 +215,18 @@ class ScenarioLLMProvider:
 
     def _is_day_off(self, context: AgentContext) -> bool:
         """Return whether this agent takes an occasional deterministic day off."""
-        if context.simulation_tick // 720 == 0:
-            return False
-        return random.Random(self._daily_seed(context, 11)).random() < 0.14
+        return random.Random(self._daily_seed(context, 1)).random() < 0.18
+
+    def _sleep_start_tick(self, context: AgentContext) -> int:
+        """Choose a stable late-night bedtime for this agent and day."""
+        rng = random.Random(self._daily_seed(context, 17))
+        return 480 + int(rng.random() * 61)
+
+    def _is_sleeping(self, context: AgentContext) -> bool:
+        """Return whether the agent is currently in its nightly sleep window."""
+        local_tick = context.simulation_tick % 720
+        sleep_start = self._sleep_start_tick(context)
+        return local_tick >= sleep_start or local_tick < 45
 
     def _leisure_target(self, context: AgentContext, salt: int = 0) -> Vector2:
         """Choose a leisure destination from the agent's personal options."""
@@ -264,7 +273,7 @@ class ScenarioLLMProvider:
             return None
         candidates = [
             item for item in context.nearby_agents
-            if item.distance <= self.social_radius * 1.5
+            if item.distance <= self.social_radius
         ]
         if not candidates:
             return None
@@ -272,12 +281,15 @@ class ScenarioLLMProvider:
         rng = random.Random(self._daily_seed(context, context.simulation_tick + 101))
         nearby = rng.choice(candidates)
         relationship = dict(context.relationship_strengths).get(nearby.agent_id, 0.5)
-        proximity = max(0.0, 1.0 - nearby.distance / (self.social_radius * 1.5))
-        chance = 0.006 + proximity * 0.022
-        chance *= 0.65 + context.profile.social_preference * 0.75
-        chance *= 0.85 + relationship * 0.45
+        proximity = max(0.0, 1.0 - nearby.distance / self.social_radius)
+        # Encounters are deliberately rare. An agent can pass another person
+        # many times without starting a conversation; proximity only nudges
+        # the probability upward.
+        chance = 0.0008 + proximity * 0.0035
+        chance *= 0.75 + context.profile.social_preference * 0.50
+        chance *= 0.90 + relationship * 0.20
 
-        if rng.random() >= min(0.08, chance):
+        if rng.random() >= min(0.012, chance):
             return None
 
         return StateDelta(
@@ -292,6 +304,25 @@ class ScenarioLLMProvider:
 
     def request_cognitive_update(self, context: AgentContext) -> StateDelta:
         self.call_count += 1
+
+        # Sleep is a hard state: no social interaction, events, or routine
+        # activity can interrupt the nightly rest period.
+        if self._is_sleeping(context) and context.profile is not None:
+            self._route_cache.pop(context.agent_id, None)
+            goal = type(context.goal)(
+                goal_id=f"{context.agent_id}-{context.simulation_tick // 720:04d}-sleep",
+                description="Sleeping",
+                target_position=context.profile.home_position,
+                importance=0.35,
+            )
+            return StateDelta(
+                goal=goal,
+                activity=ActivityType.SLEEP,
+                action=Action(
+                    action_type=ActionType.WAIT,
+                    target_position=context.profile.home_position,
+                ),
+            )
 
         # Unexpected events take priority over the normal routine.
         participating_events = [
@@ -398,9 +429,21 @@ class ScenarioLLMProvider:
                 )
 
             activity = routine.activity
+            routine_target = routine.target_position
+            if activity in {
+                ActivityType.LEISURE,
+                ActivityType.SOCIAL,
+                ActivityType.EAT,
+                ActivityType.SHOP,
+            }:
+                routine_target = self._leisure_target(
+                    context,
+                    70 + routine.start_tick,
+                )
+
             goal = context.goal
             if (
-                goal.target_position != routine.target_position
+                goal.target_position != routine_target
                 or goal.description != routine.description
             ):
                 goal = type(goal)(
@@ -410,13 +453,13 @@ class ScenarioLLMProvider:
                         f"{routine.activity.value}"
                     ),
                     description=routine.description,
-                    target_position=routine.target_position,
+                    target_position=routine_target,
                     importance=routine.importance,
                 )
 
             distance = self._distance(
                 context.position,
-                routine.target_position,
+                routine_target,
             )
 
             # Never abandon an unfinished trip just because the clock crossed
@@ -464,36 +507,6 @@ class ScenarioLLMProvider:
                     ),
                 )
 
-            if activity.value == "social" and context.nearby_agents:
-                nearby = next(
-                    (
-                        item
-                        for item in context.nearby_agents
-                        if item.agent_id == preferred_social_id
-                    ),
-                    None,
-                )
-                if nearby is None:
-                    nearby = min(
-                        (
-                            item
-                            for item in context.nearby_agents
-                            if item.agent_id in context.social_connections
-                        ),
-                        key=lambda item: item.distance,
-                        default=None,
-                    )
-                if nearby is not None and nearby.distance <= self.social_radius:
-                    return StateDelta(
-                        goal=goal,
-                        activity=activity,
-                        action=Action(
-                            action_type=ActionType.INTERACT,
-                            target_agent_id=nearby.agent_id,
-                            target_position=nearby.position,
-                        ),
-                    )
-
             if distance <= self.arrival_radius:
                 self._route_cache.pop(context.agent_id, None)
                 return StateDelta(
@@ -501,13 +514,13 @@ class ScenarioLLMProvider:
                     activity=activity,
                     action=Action(
                         action_type=ActionType.WAIT,
-                        target_position=routine.target_position,
+                        target_position=routine_target,
                     ),
                 )
 
             target = self._road_waypoint(
                 context.position,
-                routine.target_position,
+                routine_target,
                 context.agent_id,
                 context.closed_road_ids
                 if context.transport_mode == "car"
