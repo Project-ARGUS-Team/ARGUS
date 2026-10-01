@@ -55,9 +55,11 @@ class OllamaConversationProvider:
         listener_name = listener.profile.name if listener.profile else listener.agent_id
         speaker_job = speaker.profile.occupation if speaker.profile else "resident"
         listener_job = listener.profile.occupation if listener.profile else "resident"
-        topic_history = ", ".join(recent_topics) if recent_topics else "none"
+        conversation_history = "\n".join(
+            f"- {memory}" for memory in recent_topics
+        ) if recent_topics else "none"
 
-        prompt = f"""You are generating one brief conversation for a simulated town.
+        prompt = f"""You are generating one brief, believable conversation for a simulated town.
 
 Speaker: {speaker_name}, {speaker_job}
 Listener: {listener_name}, {listener_job}
