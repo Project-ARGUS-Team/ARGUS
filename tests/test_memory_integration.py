@@ -4,6 +4,7 @@ from argus.llm import (
     DeterministicMemoryProvider,
     MemoryCandidate,
     MemoryManager,
+    MockLLMProvider,
 )
 from argus.scheduling import BaselineScheduler
 from argus.simulation import Simulation
@@ -58,7 +59,7 @@ def test_scheduler_invokes_memory_manager_once_per_day() -> None:
     manager = MemoryManager(provider)
     scheduler = BaselineScheduler(
         simulation,
-        __import__("argus.llm", fromlist=["MockLLMProvider"]).MockLLMProvider(),
+        MockLLMProvider(),
         memory_manager=manager,
     )
 
