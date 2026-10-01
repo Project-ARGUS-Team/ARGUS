@@ -205,13 +205,18 @@ class BaselineScheduler:
                                 importance=0.80,
                                 related_agent_ids=(agent.agent_id,),
                             )
-                            agent_name = agent.profile.name if agent.profile else agent.agent_id
-                            target_name = target.profile.name if target.profile else target_id
                             timeline = conversation.summary
                             agent.add_thought(self.simulation.current_tick, timeline)
                             target.add_thought(self.simulation.current_tick, timeline)
                         else:
-                            self.simulation.record_conversation(agent.agent_id, target_id)
+                            fallback = self.simulation.record_conversation(
+                                agent.agent_id,
+                                target_id,
+                            )
+                            if fallback is not None:
+                                timeline = fallback.opening
+                                agent.add_thought(self.simulation.current_tick, timeline)
+                                target.add_thought(self.simulation.current_tick, timeline)
                     else:
                         self.simulation.record_conversation(agent.agent_id, target_id)
 
