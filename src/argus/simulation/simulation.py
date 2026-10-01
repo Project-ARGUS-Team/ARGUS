@@ -183,6 +183,28 @@ class Simulation:
                     )
                 )
 
+        memory_query = " ".join(
+            filter(
+                None,
+                (
+                    agent.goal.description,
+                    agent.current_activity.value,
+                    agent.profile.occupation if agent.profile else "",
+                    current_routine.description if current_routine else "",
+                ),
+            )
+        )
+        nearby_ids = {observation.agent_id for observation in nearby_agents}
+        related_agent_ids = tuple(
+            sorted(set(agent.social_connections).intersection(nearby_ids))
+        )
+        relevant_memories = self.memory_retriever.retrieve(
+            tuple(agent.memories),
+            current_tick=self.current_tick,
+            query=memory_query,
+            related_agent_ids=related_agent_ids,
+        )
+
         return AgentContext(
             agent_id=agent.agent_id,
             simulation_tick=self.current_tick,
@@ -199,28 +221,6 @@ class Simulation:
             travel_destination=agent.travel_destination,
             closed_road_ids=closed_road_ids,
             traffic_factor=traffic_factor,
-            memory_query = " ".join(
-                filter(
-                    None,
-                    (
-                        agent.goal.description,
-                        agent.current_activity.value,
-                        agent.profile.occupation if agent.profile else "",
-                        current_routine.description if current_routine else "",
-                    ),
-                )
-            )
-            nearby_ids = {observation.agent_id for observation in nearby_agents}
-            related_agent_ids = tuple(
-                sorted(set(agent.social_connections).intersection(nearby_ids))
-            )
-            relevant_memories = self.memory_retriever.retrieve(
-                tuple(agent.memories),
-                current_tick=self.current_tick,
-                query=memory_query,
-                related_agent_ids=related_agent_ids,
-            )
-
             memories=relevant_memories,
             relationship_strengths=tuple(sorted(agent.relationships.items())),
             nearby_agents=tuple(nearby_agents),
