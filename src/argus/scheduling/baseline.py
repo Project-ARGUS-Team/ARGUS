@@ -78,6 +78,8 @@ class BaselineScheduler:
             else:
                 thought = f"{name} spends time on {agent.current_activity.value}."
         elif action.action_type == ActionType.INTERACT and target_name is not None:
+            if self.conversation_provider is not None:
+                return
             thought = f"{name} talks with {target_name}."
         else:
             thought = f"{name} responds to something that needs attention."
