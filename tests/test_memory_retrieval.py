@@ -39,6 +39,35 @@ def test_retriever_prefers_relevant_memories() -> None:
     assert "Maya" in result[0].summary
 
 
+def test_retriever_can_surface_an_older_relevant_memory() -> None:
+    simulation = Simulation.create(agent_count=1, seed=42)
+    for index in range(10):
+        simulation.add_memory(
+            "agent-0001",
+            kind="experience",
+            summary=f"Routine event {index}.",
+            importance=0.3,
+        )
+
+    simulation.add_memory(
+        "agent-0001",
+        kind="conversation",
+        summary="Maya told Arun about her weekend plans.",
+        importance=0.8,
+        related_agent_ids=("agent-0002",),
+    )
+
+    memories = tuple(simulation.agents["agent-0001"].memories)
+    result = MemoryRetriever(limit=3).retrieve(
+        memories,
+        current_tick=720,
+        query="Maya weekend plans",
+        related_agent_ids=("agent-0002",),
+    )
+
+    assert any("Maya" in memory.summary for memory in result)
+
+
 def test_retriever_returns_chronological_context() -> None:
     simulation = Simulation.create(agent_count=1, seed=42)
     for summary in ("First event", "Second event", "Third event"):
