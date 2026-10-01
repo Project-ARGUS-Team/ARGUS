@@ -9,7 +9,7 @@ from argus.llm.demo import ScenarioLLMProvider
 from argus.scheduling.baseline import BaselineScheduler
 from argus.simulation.agent import ActionType
 from argus.simulation.scenario import BaselineScenario
-from argus.llm.conversation_llm import OllamaConversationProvider, create_interaction_scenario
+from argus.llm.conversation_llm import OllamaConversationProvider
 
 
 class SimulationViewer:
