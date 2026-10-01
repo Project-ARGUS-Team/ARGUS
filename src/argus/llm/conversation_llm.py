@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from difflib import SequenceMatcher
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Protocol
 from urllib import request
 
@@ -21,6 +21,29 @@ class ConversationCandidate:
 
 class ConversationCognitionProvider(Protocol):
     """Generate one short conversation when two agents interact."""
+
+    def generate(
+        self,
+        speaker: AgentState,
+        listener: AgentState,
+        recent_topics: tuple[str, ...] = (),
+    ) -> ConversationCandidate:
+        """Generate a conversation summary."""
+
+
+class OllamaConversationProvider:
+    """Use local Ollama to generate an interpretable interaction summary."""
+
+    def __init__(
+        self,
+        model: str = "qwen2.5-coder:7b-instruct",
+        base_url: str = "http://localhost:11434",
+        timeout: float = 30.0,
+    ) -> None:
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.call_count = 0
 
     def generate(
         self,
@@ -77,25 +100,25 @@ Rules:
   must remain consistent with the agents' known profiles and previous memories.
 """
 
-            payload = {{
+            payload = {
                 "model": self.model,
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
-                "options": {{"temperature": 0.5}},
-            }}
+                "options": {"temperature": 0.5},
+            }
             body = json.dumps(payload).encode("utf-8")
             req = request.Request(
-                f"{{self.base_url}}/api/generate",
+                f"{self.base_url}/api/generate",
                 data=body,
-                headers={{"Content-Type": "application/json"}},
+                headers={"Content-Type": "application/json"},
                 method="POST",
             )
 
             with request.urlopen(req, timeout=self.timeout) as response:
                 raw = json.loads(response.read().decode("utf-8"))
 
-            parsed = json.loads(raw.get("response", "{{}}"))
+            parsed = json.loads(raw.get("response", "{}"))
             topic = str(parsed.get("topic", "everyday plans")).strip()
             summary = str(parsed.get("summary", "")).strip()
 
@@ -105,7 +128,11 @@ Rules:
             normalized = " ".join(summary.lower().split())
             duplicate = any(
                 normalized == " ".join(previous.lower().split())
-                or SequenceMatcher(None, normalized, " ".join(previous.lower().split())).ratio() >= 0.82
+                or SequenceMatcher(
+                    None,
+                    normalized,
+                    " ".join(previous.lower().split()),
+                ).ratio() >= 0.82
                 or normalized in " ".join(previous.lower().split())
                 or " ".join(previous.lower().split()) in normalized
                 for previous in recent_topics
@@ -117,8 +144,3 @@ Rules:
                 )
 
         raise ValueError("Conversation provider could not generate a new exchange")
-
-        return ConversationCandidate(
-            topic=topic[:80],
-            summary=summary[:200],
-        )
