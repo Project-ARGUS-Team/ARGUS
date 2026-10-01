@@ -314,7 +314,8 @@ class SimulationViewer:
         thought_lines = []
         for thought in reversed(agent.thoughts):
             minutes = (6 * 60 + (thought.tick % 720) * 2) % (24 * 60)
-            timestamp = f"{minutes // 60:02d}:{minutes % 60:02d}"
+            day = thought.tick // 720
+            timestamp = f"D{day + 1} {minutes // 60:02d}:{minutes % 60:02d}"
             thought_lines.append(f"{timestamp}  {thought.summary}")
         self._set_thoughts(thought_lines or ["No decisions recorded yet."])
 
