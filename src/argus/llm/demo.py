@@ -273,7 +273,7 @@ class ScenarioLLMProvider:
             return None
         candidates = [
             item for item in context.nearby_agents
-            if item.distance <= self.social_radius
+            if item.distance <= self.social_radius and not item.asleep
         ]
         if not candidates:
             return None
