@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from argus.llm.gateway import LLMGateway
+from argus.llm.conversation_llm import ConversationCognitionProvider
 from argus.llm.memory import MemoryManager
 from argus.scheduling.relevance import IRelevanceScorer
 from argus.simulation.simulation import Simulation
@@ -24,6 +25,7 @@ class BaselineScheduler:
         run_id: str | None = None,
         relevance_scorer: IRelevanceScorer | None = None,
         memory_manager: MemoryManager | None = None,
+        conversation_provider: ConversationCognitionProvider | None = None,
     ) -> None:
         self.simulation = simulation
         self.gateway = gateway
@@ -31,6 +33,7 @@ class BaselineScheduler:
         self.run_id = run_id
         self.relevance_scorer = relevance_scorer
         self.memory_manager = memory_manager
+        self.conversation_provider = conversation_provider
         self.total_cognitive_updates = 0
         self._run_started = False
 
@@ -150,7 +153,49 @@ class BaselineScheduler:
             if started_interaction:
                 target_id = current_action.target_agent_id
                 if target_id in self.simulation.agents:
-                    self.simulation.record_conversation(agent.agent_id, target_id)
+                    if self.conversation_provider is not None:
+                        target = self.simulation.agents[target_id]
+                        try:
+                            conversation = self.conversation_provider.generate(
+                                agent,
+                                target,
+                            )
+                        except Exception:
+                            conversation = None
+
+                        if conversation is not None:
+                            self.simulation.add_memory(
+                                agent.agent_id,
+                                kind="conversation",
+                                summary=(
+                                    f"Talked with {target.profile.name if target.profile else target_id} "
+                                    f"about {conversation.topic}: {conversation.summary}"
+                                ),
+                                importance=0.80,
+                                related_agent_ids=(target_id,),
+                            )
+                            self.simulation.add_memory(
+                                target_id,
+                                kind="conversation",
+                                summary=(
+                                    f"Talked with {agent.profile.name if agent.profile else agent.agent_id} "
+                                    f"about {conversation.topic}: {conversation.summary}"
+                                ),
+                                importance=0.80,
+                                related_agent_ids=(agent.agent_id,),
+                            )
+                            agent_name = agent.profile.name if agent.profile else agent.agent_id
+                            target_name = target.profile.name if target.profile else target_id
+                            timeline = (
+                                f"{agent_name} talks with {target_name} "
+                                f"about {conversation.topic}."
+                            )
+                            agent.add_thought(self.simulation.current_tick, timeline)
+                            target.add_thought(self.simulation.current_tick, timeline)
+                        else:
+                            self.simulation.record_conversation(agent.agent_id, target_id)
+                    else:
+                        self.simulation.record_conversation(agent.agent_id, target_id)
 
             if (
                 current_action is not None
