@@ -61,6 +61,7 @@ class Simulation:
         self.roads = roads
         self._conversation_rng = random.Random(seed)
         self._interaction_ticks: dict[tuple[str, str], int] = {}
+        self._active_interaction_pairs: set[tuple[str, str]] = set()
         self.memory_retriever = MemoryRetriever(limit=8)
 
     @classmethod
@@ -227,6 +228,29 @@ class Simulation:
             active_events=tuple(active_events),
             social_connections=tuple(sorted(agent.social_connections)),
         )
+
+    def refresh_interaction_encounters(self, radius: float = 6.0) -> None:
+        """Forget encounters once agents have moved outside the social radius."""
+        active = set()
+        for pair in self._active_interaction_pairs:
+            first, second = pair
+            if first not in self.agents or second not in self.agents:
+                continue
+            a = self.agents[first]
+            b = self.agents[second]
+            dx = a.position.x - b.position.x
+            dy = a.position.y - b.position.y
+            if dx * dx + dy * dy <= radius * radius:
+                active.add(pair)
+        self._active_interaction_pairs = active
+
+    def claim_interaction(self, agent_id: str, target_agent_id: str) -> bool:
+        """Claim one conversation for a physical encounter."""
+        pair = tuple(sorted((agent_id, target_agent_id)))
+        if pair in self._active_interaction_pairs:
+            return False
+        self._active_interaction_pairs.add(pair)
+        return True
 
     def add_memory(
         self,
