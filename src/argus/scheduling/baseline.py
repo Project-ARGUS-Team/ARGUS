@@ -214,9 +214,28 @@ class BaselineScheduler:
                                 target_id,
                             )
                             if fallback is not None:
-                                timeline = fallback.opening
-                                agent.add_thought(self.simulation.current_tick, timeline)
-                                target.add_thought(self.simulation.current_tick, timeline)
+                                agent_name = (
+                                    agent.profile.name
+                                    if agent.profile
+                                    else agent.agent_id
+                                )
+                                target_name = (
+                                    target.profile.name
+                                    if target.profile
+                                    else target_id
+                                )
+                                timeline = (
+                                    f"{agent_name} talks with {target_name} "
+                                    f"about {fallback.topic}."
+                                )
+                                agent.add_thought(
+                                    self.simulation.current_tick,
+                                    timeline,
+                                )
+                                target.add_thought(
+                                    self.simulation.current_tick,
+                                    timeline,
+                                )
                     else:
                         self.simulation.record_conversation(agent.agent_id, target_id)
 
