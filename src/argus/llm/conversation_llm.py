@@ -44,6 +44,7 @@ class OllamaConversationProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.call_count = 0
+        self.last_debug: dict[str, object] = {}
 
     def generate(
         self,
@@ -107,6 +108,14 @@ Rules:
                 "format": "json",
                 "options": {"temperature": 0.5},
             }
+            self.last_debug = {
+                "model": self.model,
+                "speaker": speaker_name,
+                "listener": listener_name,
+                "attempt": attempt + 1,
+                "recent_topics": recent_topics,
+                "prompt": prompt,
+            }
             body = json.dumps(payload).encode("utf-8")
             req = request.Request(
                 f"{self.base_url}/api/generate",
@@ -115,14 +124,23 @@ Rules:
                 method="POST",
             )
 
-            with request.urlopen(req, timeout=self.timeout) as response:
-                raw = json.loads(response.read().decode("utf-8"))
+            try:
+                with request.urlopen(req, timeout=self.timeout) as response:
+                    raw = json.loads(response.read().decode("utf-8"))
+            except Exception as exc:
+                self.last_debug["error"] = f"{type(exc).__name__}: {exc}"
+                raise
 
+            self.last_debug["raw_response"] = raw.get("response", "")
             parsed = json.loads(raw.get("response", "{}"))
             topic = str(parsed.get("topic", "everyday plans")).strip()
             summary = str(parsed.get("summary", "")).strip()
 
+            self.last_debug["topic"] = topic
+            self.last_debug["summary"] = summary
+
             if not summary:
+                self.last_debug["validation"] = "empty_summary"
                 raise ValueError("Conversation provider returned no summary")
 
             normalized = " ".join(summary.lower().split())
@@ -137,10 +155,13 @@ Rules:
                 or " ".join(previous.lower().split()) in normalized
                 for previous in recent_topics
             )
+            self.last_debug["duplicate"] = duplicate
             if not duplicate or attempt == 1:
+                self.last_debug["validation"] = "accepted"
                 return ConversationCandidate(
                     topic=topic[:80],
                     summary=summary[:200],
                 )
 
+        self.last_debug["validation"] = "duplicate_after_retry"
         raise ValueError("Conversation provider could not generate a new exchange")
