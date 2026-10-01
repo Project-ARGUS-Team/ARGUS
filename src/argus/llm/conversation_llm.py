@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from difflib import SequenceMatcher
 from dataclasses import dataclass
 from typing import Protocol
 from urllib import request
@@ -27,30 +28,6 @@ class ConversationCognitionProvider(Protocol):
         listener: AgentState,
         recent_topics: tuple[str, ...] = (),
     ) -> ConversationCandidate:
-        """Generate a conversation summary."""
-
-
-class OllamaConversationProvider:
-    """Use local Ollama to generate an interpretable interaction summary."""
-
-    def __init__(
-        self,
-        model: str = "qwen2.5-coder:7b-instruct",
-        base_url: str = "http://localhost:11434",
-        timeout: float = 30.0,
-    ) -> None:
-        self.model = model
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-        self.call_count = 0
-
-    def generate(
-        self,
-        speaker: AgentState,
-        listener: AgentState,
-        recent_topics: tuple[str, ...] = (),
-    ) -> ConversationCandidate:
-        self.call_count += 1
         speaker_name = speaker.profile.name if speaker.profile else speaker.agent_id
         listener_name = listener.profile.name if listener.profile else listener.agent_id
         speaker_job = speaker.profile.occupation if speaker.profile else "resident"
@@ -59,7 +36,14 @@ class OllamaConversationProvider:
             f"- {memory}" for memory in recent_topics
         ) if recent_topics else "none"
 
-        prompt = f"""You are generating one brief, believable conversation for a simulated town.
+        for attempt in range(2):
+            self.call_count += 1
+            retry_instruction = (
+                "\nIMPORTANT: Your previous attempt repeated an earlier conversation. "
+                "Generate a genuinely new development and do not reuse its wording."
+                if attempt == 1 else ""
+            )
+            prompt = f"""You are generating one brief, believable conversation for a simulated town.
 
 Speaker: {speaker_name}, {speaker_job}
 Listener: {listener_name}, {listener_job}
@@ -67,51 +51,72 @@ Listener: {listener_name}, {listener_job}
 Previous conversation memories:
 {conversation_history}
 
+These memories are persistent facts, not text to summarize or repeat.
+The new conversation must add something new. If a previous memory contains a plan,
+preference, question, or detail, treat it as remembered background and advance it
+with a new development, follow-up, or related detail.{retry_instruction}
+
 Return JSON only:
 {{
   "topic": "short topic",
-  "summary": "one short third-person sentence describing the actual information exchanged"
+  "summary": "one short third-person sentence describing only the NEW information exchanged"
 }}
 
 Rules:
 - Use only ordinary everyday topics: work, study, food, commute, weekend plans,
   hobbies, local news, family plans, errands, or the local community.
-- Treat previous conversation memories as persistent context and build naturally on them.
-- If a previous memory contains a plan, preference, question, or detail, reference it
-  when it makes sense instead of starting from scratch.
-- Avoid repeating the same topic unless the new conversation clearly follows up on it.
-- The summary should describe one concrete piece of information, plan, preference,
-  question, or follow-up from the conversation, not merely name the topic.
+- A follow-up is allowed, but the summary must describe what changed or was newly
+  learned in this conversation, not restate the previous memory.
+- Do not copy phrases or sentences from previous conversation memories.
+- Avoid repeating the same topic unless the new conversation clearly advances it.
+- The summary should contain one concrete new piece of information, plan, preference,
+  question, decision, or follow-up.
 - Keep the summary as one short third-person sentence, under 25 words.
 - Do not include dialogue or quotation marks.
-- The conversation is simulated, so you may create plausible everyday details, but
-  they must remain consistent with the agents' known profiles and previous memories.
+- The conversation is simulated, so plausible everyday details are allowed, but they
+  must remain consistent with the agents' known profiles and previous memories.
 """
 
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-            "options": {"temperature": 0.4},
-        }
-        body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            f"{self.base_url}/api/generate",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+            payload = {{
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {{"temperature": 0.5}},
+            }}
+            body = json.dumps(payload).encode("utf-8")
+            req = request.Request(
+                f"{{self.base_url}}/api/generate",
+                data=body,
+                headers={{"Content-Type": "application/json"}},
+                method="POST",
+            )
 
-        with request.urlopen(req, timeout=self.timeout) as response:
-            raw = json.loads(response.read().decode("utf-8"))
+            with request.urlopen(req, timeout=self.timeout) as response:
+                raw = json.loads(response.read().decode("utf-8"))
 
-        parsed = json.loads(raw.get("response", "{}"))
-        topic = str(parsed.get("topic", "everyday plans")).strip()
-        summary = str(parsed.get("summary", "")).strip()
+            parsed = json.loads(raw.get("response", "{{}}"))
+            topic = str(parsed.get("topic", "everyday plans")).strip()
+            summary = str(parsed.get("summary", "")).strip()
 
-        if not summary:
-            raise ValueError("Conversation provider returned no summary")
+            if not summary:
+                raise ValueError("Conversation provider returned no summary")
+
+            normalized = " ".join(summary.lower().split())
+            duplicate = any(
+                normalized == " ".join(previous.lower().split())
+                or SequenceMatcher(None, normalized, " ".join(previous.lower().split())).ratio() >= 0.82
+                or normalized in " ".join(previous.lower().split())
+                or " ".join(previous.lower().split()) in normalized
+                for previous in recent_topics
+            )
+            if not duplicate or attempt == 1:
+                return ConversationCandidate(
+                    topic=topic[:80],
+                    summary=summary[:200],
+                )
+
+        raise ValueError("Conversation provider could not generate a new exchange")
 
         return ConversationCandidate(
             topic=topic[:80],
