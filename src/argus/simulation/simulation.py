@@ -24,6 +24,7 @@ from argus.simulation.context import (
 from argus.simulation.conversation import choose_conversation
 from argus.simulation.events import WorldEvent
 from argus.simulation.world import RoadSegment, World
+from argus.llm.memory_retrieval import MemoryRetriever
 
 if TYPE_CHECKING:
     from argus.llm.gateway import LLMGateway
@@ -60,6 +61,7 @@ class Simulation:
         self.roads = roads
         self._conversation_rng = random.Random(seed)
         self._interaction_ticks: dict[tuple[str, str], int] = {}
+        self.memory_retriever = MemoryRetriever(limit=8)
 
     @classmethod
     def create(
@@ -197,7 +199,29 @@ class Simulation:
             travel_destination=agent.travel_destination,
             closed_road_ids=closed_road_ids,
             traffic_factor=traffic_factor,
-            memories=tuple(agent.memories[-8:]),
+            memory_query = " ".join(
+                filter(
+                    None,
+                    (
+                        agent.goal.description,
+                        agent.current_activity.value,
+                        agent.profile.occupation if agent.profile else "",
+                        current_routine.description if current_routine else "",
+                    ),
+                )
+            )
+            nearby_ids = {observation.agent_id for observation in nearby_agents}
+            related_agent_ids = tuple(
+                sorted(set(agent.social_connections).intersection(nearby_ids))
+            )
+            relevant_memories = self.memory_retriever.retrieve(
+                tuple(agent.memories),
+                current_tick=self.current_tick,
+                query=memory_query,
+                related_agent_ids=related_agent_ids,
+            )
+
+            memories=relevant_memories,
             relationship_strengths=tuple(sorted(agent.relationships.items())),
             nearby_agents=tuple(nearby_agents),
             active_events=tuple(active_events),
