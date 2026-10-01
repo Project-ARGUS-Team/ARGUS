@@ -38,7 +38,7 @@ class OllamaConversationProvider:
         self,
         model: str = "qwen2.5-coder:7b-instruct",
         base_url: str = "http://localhost:11434",
-        timeout: float = 30.0,
+        timeout: float = 90.0,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
