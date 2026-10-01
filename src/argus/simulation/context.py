@@ -20,6 +20,7 @@ class AgentObservation:
     agent_id: str
     position: Vector2
     distance: float
+    asleep: bool = False
 
 
 @dataclass(frozen=True, slots=True)
