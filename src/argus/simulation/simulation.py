@@ -135,6 +135,7 @@ class Simulation:
                     agent_id=other.agent_id,
                     position=other.position,
                     distance=distance,
+                    asleep=other.asleep,
                 )
             )
 
