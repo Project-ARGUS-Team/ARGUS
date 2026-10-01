@@ -8,7 +8,8 @@ import tkinter as tk
 from argus.llm.demo import ScenarioLLMProvider
 from argus.scheduling.baseline import BaselineScheduler
 from argus.simulation.agent import ActionType
-from argus.simulation.scenario import BaselineScenario, create_interaction_scenario
+from argus.simulation.scenario import BaselineScenario
+from argus.llm.conversation_llm import OllamaConversationProvider, create_interaction_scenario
 
 
 class SimulationViewer:
@@ -159,9 +160,11 @@ class SimulationViewer:
         self.simulation = scenario.simulation
         route_points = tuple(landmark.position for landmark in scenario.landmarks)
         self.gateway = ScenarioLLMProvider(route_points, roads=scenario.roads)
+        self.conversation_provider = OllamaConversationProvider()
         self.scheduler = BaselineScheduler(
             self.simulation,
             self.gateway,
+            conversation_provider=self.conversation_provider,
         )
 
     def _screen(self, x: float, y: float) -> tuple[float, float]:
