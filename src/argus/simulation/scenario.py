@@ -248,17 +248,12 @@ def create_interaction_scenario(seed: int = 84) -> BaselineScenario:
         profile = replace(
             profile,
             leisure_position=landmark_map["cafe"].position,
-            routine=tuple(
-                replace(
-                    entry,
-                    target_position=(
-                        landmark_map["cafe"].position
-                        if entry.activity in {ActivityType.LEISURE, ActivityType.SOCIAL}
-                        else entry.target_position
-                    ),
-                )
-                for entry in _vary_routine(profile.routine, routine_rng)
+            leisure_options=(
+                landmark_map["cafe"].position,
+                landmark_map["market"].position,
+                landmark_map["park"].position,
             ),
+            routine=_vary_routine(profile.routine, routine_rng),
         )
         agent.profile = profile
         agent.transport_mode = TransportMode.WALK
