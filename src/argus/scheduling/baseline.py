@@ -59,16 +59,20 @@ class BaselineScheduler:
 
         if action.action_type == ActionType.MOVE:
             if agent.current_activity == ActivityType.COMMUTE:
-                thought = f"{name} continues the trip because {agent.goal.description.lower()}."
+                thought = f"{name} continues toward the destination."
+            elif agent.current_activity == ActivityType.SLEEP:
+                thought = f"{name} heads home to sleep."
             else:
-                thought = f"{name} leaves because {agent.goal.description.lower()}."
+                thought = f"{name} leaves for {agent.goal.description.lower()}."
         elif action.action_type == ActionType.WAIT:
-            if agent.current_activity == ActivityType.HOME:
-                thought = f"{name} stays home to rest."
+            if agent.current_activity == ActivityType.SLEEP:
+                thought = f"{name} goes to sleep."
+            elif agent.current_activity == ActivityType.HOME:
+                thought = f"{name} stays home."
             else:
-                thought = f"{name} has arrived and spends time on {agent.current_activity.value}."
+                thought = f"{name} spends time on {agent.current_activity.value}."
         elif action.action_type == ActionType.INTERACT and target_name is not None:
-            thought = f"{name} wants to talk with {target_name} while they're both here."
+            thought = f"{name} talks with {target_name}."
         else:
             thought = f"{name} responds to something that needs attention."
 
