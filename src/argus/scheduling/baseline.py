@@ -106,6 +106,7 @@ class BaselineScheduler:
     def step(self) -> int:
         """Score agents if configured, then update every active agent."""
         self._ensure_run()
+        self.simulation.refresh_interaction_encounters()
         updates = 0
 
         for agent in self.simulation.agents.values():
@@ -155,12 +156,20 @@ class BaselineScheduler:
             if started_interaction:
                 target_id = current_action.target_agent_id
                 if target_id in self.simulation.agents:
+                    if not self.simulation.claim_interaction(agent.agent_id, target_id):
+                        continue
                     if self.conversation_provider is not None:
                         target = self.simulation.agents[target_id]
                         try:
+                            recent_topics = tuple(
+                                memory.summary.split("about ", 1)[-1].split(":", 1)[0]
+                                for memory in agent.memories[-8:]
+                                if memory.kind == "conversation"
+                            )
                             conversation = self.conversation_provider.generate(
                                 agent,
                                 target,
+                                recent_topics=recent_topics,
                             )
                         except Exception:
                             conversation = None
