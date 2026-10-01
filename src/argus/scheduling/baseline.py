@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from argus.llm.gateway import LLMGateway
+from argus.llm.memory import MemoryManager
 from argus.scheduling.relevance import IRelevanceScorer
 from argus.simulation.simulation import Simulation
 from argus.simulation.agent import ActionType, ActivityType
@@ -22,12 +23,14 @@ class BaselineScheduler:
         telemetry: TelemetryRepository | None = None,
         run_id: str | None = None,
         relevance_scorer: IRelevanceScorer | None = None,
+        memory_manager: MemoryManager | None = None,
     ) -> None:
         self.simulation = simulation
         self.gateway = gateway
         self.telemetry = telemetry
         self.run_id = run_id
         self.relevance_scorer = relevance_scorer
+        self.memory_manager = memory_manager
         self.total_cognitive_updates = 0
         self._run_started = False
 
@@ -181,7 +184,7 @@ class BaselineScheduler:
         self.simulation.tick()
 
         if self.simulation.current_tick > 0 and self.simulation.current_tick % 720 == 0:
-            self.simulation.end_of_day_reflection()
+            self.simulation.end_of_day_reflection(self.memory_manager)
 
         self.total_cognitive_updates += updates
         return updates
