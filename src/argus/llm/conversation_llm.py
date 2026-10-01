@@ -125,6 +125,30 @@ Rules:
             if not summary:
                 raise ValueError("Conversation provider returned no summary")
 
+            invalid_summary = (
+                "?" in summary
+                or summary.lower().startswith(
+                    (
+                        "how ",
+                        "what ",
+                        "why ",
+                        "when ",
+                        "where ",
+                        "do you ",
+                        "did you ",
+                        "have you ",
+                        "are you ",
+                        "can you ",
+                        "could you ",
+                        "would you ",
+                    )
+                )
+            )
+            if invalid_summary:
+                if attempt == 0:
+                    continue
+                raise ValueError("Conversation provider returned dialogue instead of a factual summary")
+
             normalized = " ".join(summary.lower().split())
             duplicate = any(
                 normalized == " ".join(previous.lower().split())
