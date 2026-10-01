@@ -8,6 +8,7 @@ from argus.llm.memory import (
     MemoryManager,
     OllamaMemoryProvider,
 )
+from argus.llm.memory_fallback import DeterministicMemoryProvider
 from argus.llm.mock import MockLLMProvider
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "MemoryCandidate",
     "MemoryCognitionProvider",
     "MemoryManager",
+    "DeterministicMemoryProvider",
     "MockLLMProvider",
     "OllamaMemoryProvider",
     "ScenarioLLMProvider",
