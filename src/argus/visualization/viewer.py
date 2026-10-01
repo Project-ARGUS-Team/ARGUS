@@ -74,7 +74,7 @@ class SimulationViewer:
 
         tk.Label(
             inspector,
-            text="RECENT THOUGHTS",
+            text="TIMELINE",
             font=("TkDefaultFont", 10, "bold"),
         ).pack(anchor=tk.W)
 
@@ -83,7 +83,7 @@ class SimulationViewer:
 
         self.thoughts_box = tk.Text(
             thoughts_frame,
-            height=9,
+            height=16,
             wrap=tk.WORD,
             state=tk.DISABLED,
             relief=tk.FLAT,
@@ -256,7 +256,7 @@ class SimulationViewer:
     def _draw_agent_inspector(self) -> None:
         if self.selected_agent_id is None:
             self.agent_info.config(text="Click an agent to inspect it.")
-            self._set_thoughts(["Select an agent to see its recent decisions."])
+            self._set_thoughts(["Select an agent to see its timeline."])
             return
 
         agent = self.simulation.agents.get(self.selected_agent_id)
@@ -312,7 +312,7 @@ class SimulationViewer:
         self.agent_info.config(text=text)
 
         thought_lines = []
-        for thought in reversed(agent.thoughts[-9:]):
+        for thought in reversed(agent.thoughts):
             minutes = (6 * 60 + (thought.tick % 720) * 2) % (24 * 60)
             timestamp = f"{minutes // 60:02d}:{minutes % 60:02d}"
             thought_lines.append(f"{timestamp}  {thought.summary}")
