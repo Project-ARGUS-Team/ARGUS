@@ -291,39 +291,66 @@ class Simulation:
         )
         return conversation
 
-    def end_of_day_reflection(self) -> None:
-        """Create a compact daily reflection from important experiences."""
+    def end_of_day_reflection(self, memory_manager=None) -> None:
+        """Create durable daily memories, optionally using an LLM memory manager."""
+        today = self.current_tick // 720
+
+        if memory_manager is None:
+            for agent in self.state.agents.values():
+                if not agent.active or not agent.memories:
+                    continue
+
+                recent = [memory for memory in agent.memories if memory.day == today]
+                if not recent:
+                    continue
+
+                highlights = sorted(
+                    recent,
+                    key=lambda memory: memory.importance,
+                    reverse=True,
+                )[:3]
+                summary = "; ".join(memory.summary for memory in highlights)
+                self.add_memory(
+                    agent.agent_id,
+                    kind="reflection",
+                    summary=f"Reflection from day {today}: {summary}",
+                    importance=min(
+                        1.0,
+                        sum(memory.importance for memory in highlights) / len(highlights),
+                    ),
+                    related_agent_ids=tuple(
+                        sorted(
+                            {
+                                related_id
+                                for memory in highlights
+                                for related_id in memory.related_agent_ids
+                            }
+                        )
+                    ),
+                )
+            return
+
         for agent in self.state.agents.values():
-            if not agent.active or not agent.memories:
+            if not agent.active:
                 continue
-            today = self.current_tick // 720
-            recent = [memory for memory in agent.memories if memory.day == today]
+
+            recent = tuple(
+                memory
+                for memory in agent.memories
+                if memory.day == today and memory.kind != "reflection"
+            )
             if not recent:
                 continue
-            highlights = sorted(
-                recent,
-                key=lambda memory: memory.importance,
-                reverse=True,
-            )[:3]
-            summary = "; ".join(memory.summary for memory in highlights)
-            self.add_memory(
-                agent.agent_id,
-                kind="reflection",
-                summary=f"Reflection from day {today}: {summary}",
-                importance=min(
-                    1.0,
-                    sum(memory.importance for memory in highlights) / len(highlights),
-                ),
-                related_agent_ids=tuple(
-                    sorted(
-                        {
-                            related_id
-                            for memory in highlights
-                            for related_id in memory.related_agent_ids
-                        }
-                    )
-                ),
-            )
+
+            candidates = memory_manager.summarize_day(agent, recent)
+            for candidate in candidates:
+                self.add_memory(
+                    agent.agent_id,
+                    kind="reflection",
+                    summary=candidate.summary,
+                    importance=candidate.importance,
+                    related_agent_ids=candidate.related_agent_ids,
+                )
 
     def apply_state_delta(self, agent_id: str, delta: StateDelta) -> None:
         """Apply a cognitive result to authoritative agent state."""
