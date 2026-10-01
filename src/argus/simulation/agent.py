@@ -46,6 +46,7 @@ class ActivityType(StrEnum):
     EAT = "eat"
     LEISURE = "leisure"
     SOCIAL = "social"
+    SLEEP = "sleep"
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,7 +159,7 @@ class AgentState:
         self.current_action = None
         self.velocity = Vector2(0.0, 0.0)
 
-    def add_thought(self, tick: int, summary: str, limit: int = 20) -> None:
+    def add_thought(self, tick: int, summary: str, limit: int = 500) -> None:
         """Keep a concise rolling history for the inspector."""
         self.thoughts.append(ThoughtRecord(tick=tick, summary=summary))
         if len(self.thoughts) > limit:
