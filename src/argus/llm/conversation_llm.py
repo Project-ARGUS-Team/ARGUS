@@ -124,14 +124,17 @@ Rules:
                 method="POST",
             )
 
+            print(f"[ARGUS CONVERSATION] speaker={speaker_name!r} listener={listener_name!r} model={self.model!r} attempt={attempt + 1} recent_topics={recent_topics!r} requesting Ollama...", flush=True)
             try:
                 with request.urlopen(req, timeout=self.timeout) as response:
                     raw = json.loads(response.read().decode("utf-8"))
             except Exception as exc:
                 self.last_debug["error"] = f"{type(exc).__name__}: {exc}"
+                print(f"[ARGUS CONVERSATION ERROR] {type(exc).__name__}: {exc}", flush=True)
                 raise
 
             self.last_debug["raw_response"] = raw.get("response", "")
+            print(f"[ARGUS CONVERSATION] Ollama response={raw.get('response', '')!r}", flush=True)
             parsed = json.loads(raw.get("response", "{}"))
             topic = str(parsed.get("topic", "everyday plans")).strip()
             summary = str(parsed.get("summary", "")).strip()
@@ -158,6 +161,7 @@ Rules:
             self.last_debug["duplicate"] = duplicate
             if not duplicate or attempt == 1:
                 self.last_debug["validation"] = "accepted"
+                print(f"[ARGUS CONVERSATION] accepted topic={topic!r} summary={summary!r} duplicate={duplicate}", flush=True)
                 return ConversationCandidate(
                     topic=topic[:80],
                     summary=summary[:200],
